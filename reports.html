@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Management System - Reports</title>
+    <link rel="stylesheet" href="style/styles.css">
+</head>
+<body class="layout-dashboard">
+
+    <input type="checkbox" id="menu-toggle">
+
+    <header>
+        <label for="menu-toggle" class="hamburger-icon">
+            <span></span>
+            <span></span>
+            <span></span>
+        </label>
+    </header>
+
+    <nav class="dropdown-menu">
+        <ul class="menu-list">
+            <li><a href="dashboard.html">Home</a></li>
+            <li><a href="#">My Profile</a></li>
+            <li><a href="#">Settings</a></li>
+            <li><a href="login.html">Log Out</a></li>
+        </ul>
+    </nav>
+
+    <main>
+    <div class="report-layout-wrapper">
+        
+        <div class="top-actions card" style="justify-content: flex-start; margin-bottom: 5px;">
+            <div class="title-group">
+                <a href="dashboard.html" class="home-icon-link">
+                    <svg class="home-icon" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                </a>
+                <h1 class="page-title">Reports</h1>
+            </div>
+        </div>
+
+        <div class="reports-grid-container">
+            
+            <div class="reports-left-panel">
+                <div class="stat-row">
+                    <div class="stat-num-box">147</div>
+                    <div class="stat-text-box">Total Students</div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-num-box">120</div>
+                    <div class="stat-text-box">Passed Students</div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-num-box">3</div>
+                    <div class="stat-text-box">Sections</div>
+                </div>
+                <div class="stat-row">
+                    <div class="stat-num-box">1</div>
+                    <div class="stat-text-box">Courses</div>
+                </div>
+            </div>
+
+            <div class="reports-right-panel">
+                <div class="reports-right-section">
+                    <div class="report-detail-card">
+                        <div class="detail-text-group">
+                            <span class="detail-num">130</span>
+                            <span class="detail-desc">students graded</span>
+                        </div>
+                        <button type="button" class="btn-solid btn-report" onclick="window.location.href='studentgrades.html'">View/Update Grades</button>
+                    </div>
+                    <div class="report-detail-card">
+                        <div class="detail-text-group">
+                            <span class="detail-num">117</span>
+                            <span class="detail-desc">students cleared</span>
+                        </div>
+                        <button type="button" class="btn-solid btn-report" onclick="window.location.href='#'">View Clearance</button>
+                    </div>
+                </div>
+
+                <div class="reports-right-section">
+                    <div class="report-detail-card">
+                        <div class="detail-text-group">
+                            <span class="detail-num">Student</span>
+                            <span class="detail-desc">enrollment history</span>
+                        </div>
+                        <button type="button" class="btn-solid btn-report" onclick="window.location.href='studentenrollment.html'">View Student Enrollment</button>
+                    </div>
+                    <div class="report-detail-card">
+                        <div class="detail-text-group">
+                            <span class="detail-num">21</span>
+                            <span class="detail-desc">student concerns</span>
+                        </div>
+                        <button type="button" class="btn-solid btn-report" onclick="window.location.href='#'">View Student Reports</button>
+                    </div>
+                </div>
+            </div>
+
+        </div> </div>
+</main>
+
+    <footer></footer>
+
+</body>
+</html>
