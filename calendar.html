@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Management System - Calendar</title>
+    <link rel="stylesheet" href="style/styles.css">
+</head>
+<body class="layout-dashboard">
+
+    <input type="checkbox" id="menu-toggle">
+
+    <header>
+        <label for="menu-toggle" class="hamburger-icon">
+            <span></span>
+            <span></span>
+            <span></span>
+        </label>
+    </header>
+
+    <nav class="dropdown-menu">
+        <ul class="menu-list">
+            <li><a href="dashboard.html">Home</a></li>
+            <li><a href="#">My Profile</a></li>
+            <li><a href="#">Settings</a></li>
+            <li><a href="login.html">Log Out</a></li>
+        </ul>
+    </nav>
+
+    <main>
+        <div class="calendar-layout-wrapper">
+            
+            <div class="top-actions card">
+                <div class="title-group">
+                    <a href="dashboard.html" class="home-icon-link">
+                        <svg class="home-icon" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                    </a>
+                    <h1 class="page-title">Calendar</h1>
+                </div>
+                
+                <div class="action-buttons">
+                    <button class="btn-solid">Set Task</button>
+                    <button class="btn-solid">Highlight Date</button>
+                    <button class="btn-solid">Add Event</button>
+                    <button class="btn-solid">Search Event</button>
+                </div>
+            </div>
+
+            <div class="card calendar-main-card">
+                
+                <div class="calendar-left">
+                    
+                    <div class="calendar-controls">
+                        <select class="cal-dropdown" id="month-select">
+                            <option value="0">January</option>
+                            <option value="1">February</option>
+                            <option value="2">March</option>
+                            <option value="3">April</option>
+                            <option value="4">May</option>
+                            <option value="5">June</option>
+                            <option value="6">July</option>
+                            <option value="7">August</option>
+                            <option value="8" selected>September</option>
+                            <option value="9">October</option>
+                            <option value="10">November</option>
+                            <option value="11">December</option>
+                        </select>
+                        <select class="cal-dropdown" id="year-select">
+                            <option value="2024">2024</option>
+                            <option value="2025" selected>2025</option>
+                            <option value="2026">2026</option>
+                            <option value="2027">2027</option>
+                            <option value="2028">2028</option>
+                        </select>
+                    </div>
+
+                    <div class="calendar-grid" id="calendar-grid">
+                        <div class="cal-header">Sunday</div>
+                        <div class="cal-header">Monday</div>
+                        <div class="cal-header">Tuesday</div>
+                        <div class="cal-header">Wednesday</div>
+                        <div class="cal-header">Thursday</div>
+                        <div class="cal-header">Friday</div>
+                        <div class="cal-header">Saturday</div>
+                        
+                        </div>
+                </div>
+
+                <div class="calendar-right">
+                    <div class="reminders-container">
+                        <div class="reminders-pill">Reminders</div>
+                        <div class="reminders-content">
+                            </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <footer></footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const monthSelect = document.getElementById('month-select');
+            const yearSelect = document.getElementById('year-select');
+            const calendarGrid = document.getElementById('calendar-grid');
+
+            function generateCalendar(month, year) {
+                // 1. Clear out old days (but keep the Sunday-Saturday headers)
+                const existingDays = calendarGrid.querySelectorAll('.cal-cell');
+                existingDays.forEach(day => day.remove());
+
+                // 2. Figure out the first day of the week and total days in the month
+                // getDay() returns 0 (Sunday) through 6 (Saturday)
+                const firstDay = new Date(year, month, 1).getDay(); 
+                // Getting the 0th day of the next month gives us the last day of the current month
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+                // 3. Add blank placeholder cells for the days before the 1st of the month
+                for (let i = 0; i < firstDay; i++) {
+                    const emptyCell = document.createElement('div');
+                    emptyCell.className = 'cal-cell empty';
+                    calendarGrid.appendChild(emptyCell);
+                }
+
+                // 4. Create the actual numbered days
+                for (let i = 1; i <= daysInMonth; i++) {
+                    const dayCell = document.createElement('div');
+                    dayCell.className = 'cal-cell';
+                    dayCell.textContent = i;
+                    calendarGrid.appendChild(dayCell);
+                }
+
+                // 5. Fill out the rest of the bottom row with empty cells so the borders look perfect
+                const totalCells = firstDay + daysInMonth;
+                const remainingCells = (7 - (totalCells % 7)) % 7;
+                for (let i = 0; i < remainingCells; i++) {
+                    const emptyCell = document.createElement('div');
+                    emptyCell.className = 'cal-cell empty';
+                    calendarGrid.appendChild(emptyCell);
+                }
+            }
+
+            // Generate the initial calendar (defaults to Sept 2025 based on your HTML "selected" tags)
+            generateCalendar(parseInt(monthSelect.value), parseInt(yearSelect.value));
+
+            // Listen for changes on the dropdowns and update instantly
+            monthSelect.addEventListener('change', function() {
+                generateCalendar(parseInt(monthSelect.value), parseInt(yearSelect.value));
+            });
+            
+            yearSelect.addEventListener('change', function() {
+                generateCalendar(parseInt(monthSelect.value), parseInt(yearSelect.value));
+            });
+        });
+    </script>
+</body>
+</html>
