@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Management System - Enrollment History</title>
+    <link rel="stylesheet" href="style/styles.css">
+</head>
+<body class="layout-dashboard no-main-scroll">
+
+    <input type="checkbox" id="menu-toggle">
+
+    <header>
+        <label for="menu-toggle" class="hamburger-icon">
+            <span></span>
+            <span></span>
+            <span></span>
+        </label>
+    </header>
+
+    <nav class="dropdown-menu">
+        <ul class="menu-list">
+            <li><a href="dashboard.html">Home</a></li>
+            <li><a href="profile.html">My Profile</a></li>
+            <li><a href="#">Settings</a></li>
+            <li><a href="login.html">Log Out</a></li>
+        </ul>
+    </nav>
+
+    <main>
+        <div class="list-layout-wrapper">
+            
+            <div class="top-actions card">
+                <div class="title-group">
+                    <a href="dashboard.html" class="home-icon-link">
+                        <svg class="home-icon" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                    </a>
+                    <h1 class="page-title">Enrollment History</h1>
+                </div>
+                
+                <div class="action-buttons">
+                    <button type="button" class="btn-solid" name="filter_history" onclick="alert('Open Filter Panel')">Filter List</button>
+                    <button type="button" class="btn-solid" name="search_history" onclick="alert('Focus Search Input')">Search Student</button>
+                </div>
+            </div>
+
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Student ID</th>
+                            <th>Student Name</th>
+                            <th>College</th>
+                            <th>Courses Enrolled</th>
+                            <th>Enrollment Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>2025-001</td><td>John Doe</td><td>Engineering</td><td>CS101, EE202, MATH101</td><td>01/15/2025</td></tr>
+                        <tr><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr><td></td><td></td><td></td><td></td><td></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </main>
+
+    <footer></footer>
+
+</body>
+</html>

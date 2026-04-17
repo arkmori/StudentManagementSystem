@@ -2,10 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="style/styles.css">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Management System - Login</title>
-    
+    <title>Student Management System - Register</title>
+    <link rel="stylesheet" href="style/styles.css">
 </head>
 <body class="layout-login">
 
@@ -18,14 +17,20 @@
             
             <div class="profile-pic-placeholder"></div>
             
-            <h2 class="login-title">Log In</h2>
+            <h2 class="login-title">Register</h2>
             
             <hr>
-
-            <form action="#" method="post">
+            
+            <form action="login.html" method="POST">
+                
                 <div class="form-group">
                     <label for="username">User Name</label>
                     <input type="text" id="username" name="username" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" required>
                 </div>
                 
                 <div class="form-group">
@@ -33,14 +38,15 @@
                     <input type="password" id="password" name="password" required>
                 </div>
                 
-                <button type="button" class="btn btn-primary" onclick="window.location.href='dashboard.html'">Log In</button>
-                
-                <div class="secondary-actions">
-                    <button type="button" class="btn btn-secondary">Forget Password</button>
-                    <button type="button" class="btn btn-secondary" onclick="window.location.href='register.html'">Sign Up</button>
+                <div class="form-group">
+                    <label for="reenter-password">Reenter Password</label>
+                    <input type="password" id="reenter-password" name="reenter-password" required>
                 </div>
+                
+                <button type="submit" class="btn btn-primary" style="margin-top: 10px;">Sign Up</button>
+                
             </form>
-            
+
             <hr>
 
         </div>
