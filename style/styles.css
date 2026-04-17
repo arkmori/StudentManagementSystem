@@ -423,3 +423,27 @@ body.layout-dashboard {
         grid-template-columns: 1fr;
     }
 }
+
+/* Update this class to stack the text vertically */
+.detail-text-group {
+    display: flex;
+    flex-direction: column; /* This forces the subtitle to the next line */
+    align-items: flex-start; /* Keeps text left-aligned */
+    gap: 2px; /* Small space between header and subtitle */
+}
+
+/* Update the large text styling */
+.detail-num {
+    font-size: 3rem; /* Adjusted for better hierarchy */
+    font-weight: bold;
+    color: #C36006;
+    line-height: 1.1; /* Tighter line height for headers */
+}
+
+/* Update the subtitle text styling */
+.detail-desc {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #C36006;
+    margin-top: -5px; /* Pulls the subtitle closer to the main text */
+}
