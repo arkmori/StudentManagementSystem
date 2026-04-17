@@ -74,7 +74,7 @@ body.layout-dashboard {
 .layout-dashboard footer {
     flex-shrink: 0; 
     width: 100%;
-    height: 40px; /* Changed from var(--header-footer-height) to a smaller, fixed height */
+    height: 40px;
     background-color: var(--primary-dark);
     z-index: 1000;
 }
@@ -115,7 +115,7 @@ body.layout-dashboard {
     display: grid; 
     grid-template-columns: 1.1fr 1fr; 
     gap: 30px; 
-    align-items: start; /* ALIGNMENT FIX: Locks the left and right columns to the absolute top edge */
+    align-items: start;
 }
 
 .card { 
@@ -141,7 +141,7 @@ body.layout-dashboard {
 .left-column { 
     display: flex; 
     flex-direction: column; 
-    gap: 20px; /* ALIGNMENT FIX: Changed from 25px to match the right column's gap */
+    gap: 20px;
 }
 
 .right-column { 
@@ -154,7 +154,7 @@ body.layout-dashboard {
     padding: 40px; 
     display: flex; 
     align-items: center; 
-    height: 160px; /* ALIGNMENT FIX: Locks height so the bottom edge aligns with the small cards */
+    height: 160px;
 }
 
 .welcome-title { 
@@ -201,7 +201,7 @@ body.layout-dashboard {
     justify-content: center; 
     align-items: center; 
     padding: 20px; 
-    height: 160px; /* ALIGNMENT FIX: Locked height to match the welcome card */
+    height: 160px;
 }
 
 .card-icon { 
@@ -217,6 +217,7 @@ body.layout-dashboard {
     text-transform: uppercase; 
     text-align: center; 
 }
+
 /* ==========================================================================
    5. DASHBOARD DROPDOWN MENU
    ========================================================================== */
@@ -277,7 +278,6 @@ body.layout-dashboard {
     position: relative;
 }
 
-/* THE FIX: Separate the borders instead of collapsing them */
 .data-table {
     width: 100%;
     border-collapse: separate; 
@@ -294,7 +294,7 @@ body.layout-dashboard {
     font-weight: bold;
 }
 
-/* Sticky Header Logic */
+/* --- Sticky Header Logic --- */
 .data-table th {
     position: sticky;
     top: 0;
@@ -359,7 +359,6 @@ body.layout-dashboard {
 .calendar-right { display: flex; flex-direction: column; }
 .reminders-container { border: 4px solid var(--primary-accent); border-radius: 15px; height: 100%; min-height: 400px; display: flex; flex-direction: column; align-items: center; padding: 25px; }
 
-/* Overrides the card text color so Reminders pill is white */
 .reminders-pill { background-color: var(--primary-accent); color: var(--white) !important; padding: 10px 40px; border-radius: 30px; font-size: 2rem; font-weight: bold; margin-top: 5px; }
 .reminders-content { width: 100%; margin-top: 20px; flex-grow: 1; }
 
@@ -375,15 +374,13 @@ body.layout-dashboard {
    ========================================================================== */
 .text-center { text-align: center !important; }
 
-/* Lock the exact height of the top row so the browser cannot resize it */
 .data-table thead tr:nth-child(1) th {
     height: 56px; 
     box-sizing: border-box;
 }
 
-/* Pin the second row exactly below the first row */
 .data-table thead tr:nth-child(2) th.sub-header {
-    top: 56px; /* Matches the height locked in above */
+    top: 56px;
     font-size: 0.9rem;
 }
 
@@ -405,12 +402,12 @@ body.layout-dashboard {
     gap: 20px;
 }
 
-/* --- Left Column: Stats Panel (Now Dark Brown) --- */
+/* --- Left Column: Stats Panel --- */
 .reports-left-panel {
     border: var(--card-border-width) solid var(--primary-accent);
     border-radius: var(--card-border-radius);
     padding: 25px;
-    background-color: var(--primary-dark); /* MATCHES HEADER */
+    background-color: var(--primary-dark);
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -425,7 +422,7 @@ body.layout-dashboard {
 
 .stat-num-box {
     background-color: #C36006;
-    color: var(--white) !important; /* Force white text for numbers */
+    color: var(--white) !important;
     border-radius: 12px;
     display: flex;
     justify-content: center;
@@ -438,8 +435,8 @@ body.layout-dashboard {
 .stat-text-box {
     border: var(--card-border-width) solid var(--primary-accent);
     border-radius: 12px;
-    background-color: var(--white); /* Keep the text container white */
-    color: #C36006 !important; /* Force the text to stay brown */
+    background-color: var(--white);
+    color: #C36006 !important;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -448,7 +445,7 @@ body.layout-dashboard {
     flex-grow: 1;
 }
 
-/* --- Right Column: Details Panel (Now Dark Brown) --- */
+/* --- Right Column: Details Panel --- */
 .reports-right-panel {
     display: flex;
     flex-direction: column;
@@ -459,7 +456,7 @@ body.layout-dashboard {
     border: var(--card-border-width) solid var(--primary-accent);
     border-radius: var(--card-border-radius);
     padding: 25px;
-    background-color: var(--primary-dark); /* MATCHES HEADER */
+    background-color: var(--primary-dark);
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 20px;
@@ -469,7 +466,7 @@ body.layout-dashboard {
 .report-detail-card {
     border: var(--card-border-width) solid var(--primary-accent);
     border-radius: var(--card-border-radius);
-    background-color: var(--white); /* Keep inner card white */
+    background-color: var(--white);
     padding: 20px;
     display: flex;
     flex-direction: column;
@@ -477,12 +474,10 @@ body.layout-dashboard {
     transition: background-color 0.2s;
 }
 
-/* Updated hover for the white cards on the dark background */
 .report-detail-card:hover {
     background-color: var(--hover-gray);
 }
 
-/* Force colors inside the cards to ignore the dark container's influence */
 .report-detail-card .detail-num,
 .report-detail-card .detail-desc {
     color: #C36006 !important;
@@ -514,50 +509,45 @@ body.layout-dashboard {
     }
 }
 
-/* Update this class to stack the text vertically */
 .detail-text-group {
     display: flex;
-    flex-direction: column; /* This forces the subtitle to the next line */
-    align-items: flex-start; /* Keeps text left-aligned */
-    gap: 2px; /* Small space between header and subtitle */
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
 }
 
-/* Update the large text styling */
 .detail-num {
-    font-size: 3rem; /* Adjusted for better hierarchy */
+    font-size: 3rem;
     font-weight: bold;
     color: #C36006;
-    line-height: 1.1; /* Tighter line height for headers */
+    line-height: 1.1;
 }
 
-/* Update the subtitle text styling */
 .detail-desc {
     font-size: 1.1rem;
     font-weight: bold;
     color: #C36006;
-    margin-top: -5px; /* Pulls the subtitle closer to the main text */
+    margin-top: -5px;
 }
 
 /* ==========================================================================
    12. CLEARANCE PAGE COMPONENTS
    ========================================================================== */
 
-/* Defines the split layout for the table and sidebar */
 .clearance-content-grid {
     display: grid;
-    grid-template-columns: 2fr 1fr; /* Table is twice as wide as sidebar */
+    grid-template-columns: 2fr 1fr;
     gap: 20px;
-    flex-grow: 1; /* Takes up remaining height of the page */
-    min-height: 0; /* Crucial: allows the internal table wrapper to scroll */
+    flex-grow: 1;
+    min-height: 0;
 }
 
-/* Right Sidebar container */
+/* --- Right Sidebar container --- */
 .clearance-sidebar {
     padding: 30px;
     display: flex;
     flex-direction: column;
     background-color: var(--white);
-    /* Prevents the sidebar from scrolling */
     overflow: hidden; 
 }
 
@@ -573,7 +563,6 @@ body.layout-dashboard {
     font-weight: bold;
 }
 
-/* Ensures icons inside badges are white */
 .status-badge svg {
     width: 14px;
     height: 14px;
@@ -596,7 +585,7 @@ body.layout-dashboard {
 
 .search-input {
     width: 100%;
-    padding: 10px 40px 10px 20px; /* Right padding makes room for the icon */
+    padding: 10px 40px 10px 20px;
     border: 2px solid var(--primary-accent);
     border-radius: 20px;
     font-size: 0.95rem;
@@ -624,13 +613,12 @@ body.layout-dashboard {
 /* --- Responsiveness --- */
 @media (max-width: 900px) {
     .clearance-content-grid {
-        /* Stack the sidebar above the table on smaller screens */
         grid-template-columns: 1fr; 
         grid-template-rows: auto 1fr;
     }
 }
 
-/* Individual Card Styling */
+/* --- Individual Card Styling --- */
 .complaint-card {
     display: flex;
     justify-content: space-between;
@@ -658,42 +646,41 @@ body.layout-dashboard {
     padding-bottom: 20px; 
 }
 
-/* Individual Card Styling */
+/* --- Individual Card Styling --- */
 .complaint-card {
     display: flex;
     justify-content: space-between;
-    align-items: flex-end; /* Locks the button to the bottom right */
+    align-items: flex-end;
     padding: 20px 30px;
-    cursor: pointer; /* Makes the whole card look clickable */
+    cursor: pointer;
 }
 
-/* Left side container (Number and Text) */
+/* --- Left side container (Number and Text) --- */
 .complaint-content-left {
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
 }
 
-/* The giant number styling */
+/* --- The giant number styling --- */
 .complaint-number {
-    font-size: 5.5rem; /* Drastically increased to match your image */
+    font-size: 5.5rem;
     font-weight: bold;
     color: var(--primary-accent);
-    line-height: 0.8; /* Tightly crops the invisible box around the number */
-    margin-bottom: 10px; /* Precise spacing between number and subtext */
+    line-height: 0.8;
+    margin-bottom: 10px;
 }
 
-/* The sub-text styling */
+/* --- The sub-text styling --- */
 .complaint-details {
     display: flex;
     flex-direction: column;
-    font-size: 0.95rem; /* Slightly smaller to emphasize the hierarchy */
+    font-size: 0.95rem;
     font-weight: bold;
     color: var(--primary-accent);
     line-height: 1.3;
 }
 
-/* Specific styling for the resolve button to make it slightly smaller */
 .btn-resolve {
     padding: 8px 25px;
     font-size: 0.8rem;
@@ -724,7 +711,6 @@ body.layout-dashboard {
     gap: 20px;
 }
 
-/* 3-Column Grid: Left side, 2px line, Right side */
 .profile-split-card {
     display: grid;
     grid-template-columns: 1fr 2px 1fr;
@@ -732,13 +718,12 @@ body.layout-dashboard {
     padding: 50px 40px;
 }
 
-/* Disable hover bounce/color shift for this static data card */
 .profile-split-card:hover {
     background-color: var(--white);
     transform: none;
 }
 
-/* The vertical divider */
+/* --- The vertical divider --- */
 .profile-line {
     background-color: var(--primary-accent);
     width: 100%;
@@ -761,11 +746,10 @@ body.layout-dashboard {
 .profile-square-avatar {
     width: 150px;
     height: 150px;
-    background-color: #D9D9D9; /* Light gray placeholder from image */
-    margin: 0 auto 35px auto; /* Centers the box */
+    background-color: #D9D9D9;
+    margin: 0 auto 35px auto;
 }
 
-/* Constrains text width and centers it under the titles */
 .profile-data-list {
     display: flex;
     flex-direction: column;
@@ -783,15 +767,15 @@ body.layout-dashboard {
 /* --- Responsiveness --- */
 @media (max-width: 900px) {
     .profile-split-card {
-        grid-template-columns: 1fr; /* Stack columns */
+        grid-template-columns: 1fr;
         gap: 60px;
     }
     
     .profile-line {
-        display: none; /* Hide vertical line on mobile */
+        display: none;
     }
     
     .profile-col .profile-data-list {
-        margin-top: 0 !important; /* Reset margin on mobile so it doesn't look empty */
+        margin-top: 0 !important;
     }
 }
