@@ -11,6 +11,10 @@ require_once 'connection.php';
 $user_id = $_SESSION['user_id'];
 $display_name = 'User';
 
+$enrolledStudents = 0;
+$coursesTaught = 0;
+$failingStudents = 0;
+
 try {
     $stmt = $pdo->prepare("SELECT first_name, last_name FROM `Login` WHERE user_id = :user_id");
     $stmt->bindParam(':user_id', $user_id);
@@ -20,6 +24,11 @@ try {
     if ($user) {
         $display_name = trim($user['first_name'] . ' ' . $user['last_name']);
     }
+
+    $enrolledStudents = $pdo->query("SELECT COUNT(DISTINCT student_id) FROM `Enrollment`")->fetchColumn();
+    $coursesTaught = $pdo->query("SELECT COUNT(*) FROM `Course`")->fetchColumn();
+    $failingStudents = $pdo->query("SELECT COUNT(DISTINCT enrollment_id) FROM `Grades` WHERE status = 'Failed'")->fetchColumn();
+
 } catch (PDOException $e) {
     $display_name = 'System User';
 }
@@ -65,15 +74,15 @@ try {
                 <a href="reports.php" class="card stats-card">
                     <div class="stats-grid">
                         <div class="status-block">
-                            <div class="status-number">147</div>
+                            <div class="status-number"><?php echo htmlspecialchars($enrolledStudents); ?></div>
                             <div class="status-text">Enrolled Students</div>
                         </div>
                         <div class="status-block">
-                            <div class="status-number">1</div>
+                            <div class="status-number"><?php echo htmlspecialchars($coursesTaught); ?></div>
                             <div class="status-text">Courses Taught</div>
                         </div>
                         <div class="status-block">
-                            <div class="status-number">27</div>
+                            <div class="status-number"><?php echo htmlspecialchars($failingStudents); ?></div>
                             <div class="status-text">Failing Students</div>
                         </div>
                     </div>

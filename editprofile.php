@@ -9,6 +9,13 @@ require_once 'connection.php';
 $user_id = $_SESSION['user_id'];
 $message = '';
 
+// Fetch current user details to check role and faculty ID before POST processing
+$stmtInit = $pdo->prepare("SELECT l.role_id, r.role_name, f.faculty_id FROM `Login` l LEFT JOIN `Role` r ON l.role_id = r.role_id LEFT JOIN `Faculty` f ON l.user_id = f.user_id WHERE l.user_id = :uid");
+$stmtInit->execute([':uid' => $user_id]);
+$initUser = $stmtInit->fetch();
+$is_faculty = strtolower($initUser['role_name'] ?? '') === 'faculty';
+$faculty_id = $initUser['faculty_id'] ?? null;
+
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     try {
         $pdo->beginTransaction();
@@ -22,6 +29,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $stmtFac = $pdo->prepare("UPDATE `Faculty` SET college_id = :cid WHERE user_id = :uid");
         $stmtFac->execute([':cid' => $_POST['college_id'], ':uid' => $user_id]);
 
+        // Process newly added course/section if provided
+        if ($is_faculty && $faculty_id && !empty($_POST['new_course_name']) && !empty($_POST['new_section_name'])) {
+            $nc = trim($_POST['new_course_name']);
+            $ns = trim($_POST['new_section_name']);
+            
+            $stmtC = $pdo->prepare("SELECT course_id FROM `Course` WHERE course_name = :c");
+            $stmtC->execute([':c' => $nc]);
+            if (!$stmtC->fetch()) {
+                $pdo->prepare("INSERT INTO `Course` (course_name) VALUES (:c)")->execute([':c' => $nc]);
+            }
+            
+            $stmtS = $pdo->prepare("INSERT INTO `Section` (course_name, section_name, faculty_id) VALUES (:c, :s, :fid)");
+            $stmtS->execute([':c' => $nc, ':s' => $ns, ':fid' => $faculty_id]);
+        }
+
         $pdo->commit();
         header("Location: profile.php");
         exit();
@@ -33,13 +55,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 }
 
+// Re-fetch all data to populate the HTML form
 $stmt = $pdo->prepare("SELECT l.*, pe.civil_status, pe.employed_since, pe.position, f.college_id FROM `Login` l LEFT JOIN `ProfileExt` pe ON l.user_id = pe.user_id LEFT JOIN `Faculty` f ON l.user_id = f.user_id WHERE l.user_id = :uid");
 $stmt->execute([':uid' => $user_id]);
 $user = $stmt->fetch();
 
 $colleges = $pdo->query("SELECT * FROM `College`")->fetchAll();
 
-// Define a reusable inline style for dropdowns to ensure consistency
+$my_classes = [];
+if ($is_faculty && $faculty_id) {
+    $stmtMC = $pdo->prepare("SELECT course_name, section_name FROM `Section` WHERE faculty_id = :fid ORDER BY course_name ASC");
+    $stmtMC->execute([':fid' => $faculty_id]);
+    $my_classes = $stmtMC->fetchAll();
+}
+
 $dropdownStyle = "width: 100%; padding: 12px 20px; border: 3px solid #BC5F04; border-radius: 30px; font-size: 1rem; color: #BC5F04; background-color: #FFFFFF; outline: none; box-sizing: border-box; cursor: pointer; appearance: none; -webkit-appearance: none;";
 ?>
 <!DOCTYPE html>
@@ -49,15 +78,32 @@ $dropdownStyle = "width: 100%; padding: 12px 20px; border: 3px solid #BC5F04; bo
     <link rel="stylesheet" href="style/styles.css">
     <title>Edit Profile</title>
     <style>
-        /* Extra fix for date inputs which can sometimes be stubborn */
         input[type="date"] {
             color: #BC5F04;
         }
     </style>
 </head>
 <body class="layout-dashboard">
+
+    <input type="checkbox" id="menu-toggle">
+
     <header>
-        </header>
+        <label for="menu-toggle" class="hamburger-icon">
+            <span></span>
+            <span></span>
+            <span></span>
+        </label>
+    </header>
+
+    <nav class="dropdown-menu">
+        <ul class="menu-list">
+            <li><a href="dashboard.php">Home</a></li>
+            <li><a href="profile.php">My Profile</a></li>
+            <li><a href="#">Settings</a></li>
+            <li><a href="logout.php">Log Out</a></li>
+        </ul>
+    </nav>
+
     <main>
         <div class="login-container" style="max-width: 600px; margin: 40px auto; background: white; padding: 40px; border-radius: 25px; border: 4px solid #2B0504;">
             <form action="" method="POST">
@@ -132,13 +178,39 @@ $dropdownStyle = "width: 100%; padding: 12px 20px; border: 3px solid #BC5F04; bo
                     <input type="text" name="position" value="<?php echo htmlspecialchars($user['position'] ?? ''); ?>" placeholder="e.g. Instructor I">
                 </div>
 
+                <?php if ($is_faculty): ?>
+                    <hr style="margin: 25px 0;">
+                    <h3 style="color: var(--primary-accent); margin-bottom: 15px;">Add Handled Course</h3>
+                    
+                    <?php if(count($my_classes) > 0): ?>
+                        <p style="color: var(--primary-accent); font-weight: bold; margin-bottom: 5px; font-size: 0.9rem;">Currently Teaching:</p>
+                        <ul style="color: var(--primary-accent); padding-left: 20px; margin-bottom: 20px; font-size: 0.9rem;">
+                            <?php foreach($my_classes as $mc): ?>
+                                <li><?php echo htmlspecialchars($mc['course_name'] . ' - ' . $mc['section_name']); ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+
+                    <div class="form-group">
+                        <label>New Course Name</label>
+                        <input type="text" name="new_course_name" placeholder="e.g. CS101">
+                    </div>
+
+                    <div class="form-group">
+                        <label>New Section Name</label>
+                        <input type="text" name="new_section_name" placeholder="e.g. 3A">
+                    </div>
+                <?php endif; ?>
+
                 <div style="display: flex; gap: 15px; margin-top: 30px;">
-                    <button type="submit" class="btn btn-primary" style="flex: 1;">Update Profile</button>
-                    <button type="button" class="btn" style="flex: 1; padding: 14px 20px;" onclick="window.location.href='profile.php'">Cancel</button>
+                    <button type="submit" class="btn" style="flex: 1; padding: 14px 20px; margin: 0;">Update Profile</button>
+                    <button type="button" class="btn" style="flex: 1; padding: 14px 20px; margin: 0;" onclick="window.location.href='profile.php'">Cancel</button>
                 </div>
             </form>
         </div>
     </main>
+
     <footer></footer>
+
 </body>
 </html>

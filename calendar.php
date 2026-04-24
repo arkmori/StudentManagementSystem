@@ -1,3 +1,13 @@
+<?php
+session_start();
+
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {
+    header("Location: login.php");
+    exit();
+}
+
+require_once 'connection.php';
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -20,10 +30,10 @@
 
     <nav class="dropdown-menu">
         <ul class="menu-list">
-            <li><a href="dashboard.html">Home</a></li>
-            <li><a href="profile.html">My Profile</a></li>
+            <li><a href="dashboard.php">Home</a></li>
+            <li><a href="profile.php">My Profile</a></li>
             <li><a href="#">Settings</a></li>
-            <li><a href="login.html">Log Out</a></li>
+            <li><a href="logout.php">Log Out</a></li>
         </ul>
     </nav>
 
@@ -32,7 +42,7 @@
             
             <div class="top-actions card">
                 <div class="title-group">
-                    <a href="dashboard.html" class="home-icon-link">
+                    <a href="dashboard.php" class="home-icon-link">
                         <svg class="home-icon" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
                     </a>
                     <h1 class="page-title">Calendar</h1>
@@ -107,24 +117,18 @@
             const calendarGrid = document.getElementById('calendar-grid');
 
             function generateCalendar(month, year) {
-                // 1. Clear out old days (but keep the Sunday-Saturday headers)
                 const existingDays = calendarGrid.querySelectorAll('.cal-cell');
                 existingDays.forEach(day => day.remove());
 
-                // 2. Figure out the first day of the week and total days in the month
-                // getDay() returns 0 (Sunday) through 6 (Saturday)
                 const firstDay = new Date(year, month, 1).getDay(); 
-                // Getting the 0th day of the next month gives us the last day of the current month
                 const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-                // 3. Add blank placeholder cells for the days before the 1st of the month
                 for (let i = 0; i < firstDay; i++) {
                     const emptyCell = document.createElement('div');
                     emptyCell.className = 'cal-cell empty';
                     calendarGrid.appendChild(emptyCell);
                 }
 
-                // 4. Create the actual numbered days
                 for (let i = 1; i <= daysInMonth; i++) {
                     const dayCell = document.createElement('div');
                     dayCell.className = 'cal-cell';
@@ -132,7 +136,6 @@
                     calendarGrid.appendChild(dayCell);
                 }
 
-                // 5. Fill out the rest of the bottom row with empty cells so the borders look perfect
                 const totalCells = firstDay + daysInMonth;
                 const remainingCells = (7 - (totalCells % 7)) % 7;
                 for (let i = 0; i < remainingCells; i++) {
@@ -142,10 +145,8 @@
                 }
             }
 
-            // Generate the initial calendar (defaults to Sept 2025 based on your HTML "selected" tags)
             generateCalendar(parseInt(monthSelect.value), parseInt(yearSelect.value));
 
-            // Listen for changes on the dropdowns and update instantly
             monthSelect.addEventListener('change', function() {
                 generateCalendar(parseInt(monthSelect.value), parseInt(yearSelect.value));
             });

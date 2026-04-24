@@ -21,6 +21,7 @@ $department = 'N/A';
 $college = 'N/A';
 $employed_since = 'N/A';
 $position = 'N/A';
+$courses_handled = 'N/A';
 
 try {
     $stmt = $pdo->prepare("
@@ -53,11 +54,28 @@ try {
         $status = $user['civil_status'] ?: 'N/A';
         
         if (strtolower($user['role_name']) === 'faculty') {
-            $faculty_id = $user['faculty_id'] ? 'F' . str_pad($user['faculty_id'], 4, '0', STR_PAD_LEFT) : 'N/A';
+            $raw_faculty_id = $user['faculty_id'];
+            $faculty_id = $raw_faculty_id ? 'F' . str_pad($raw_faculty_id, 4, '0', STR_PAD_LEFT) : 'N/A';
             $department = $user['department'] ?: 'N/A';
             $college = $user['college_name'] ?: 'N/A';
             $employed_since = $user['employed_since'] ? date('m/d/Y', strtotime($user['employed_since'])) : 'N/A';
             $position = $user['position'] ?: 'N/A';
+            
+            // Fetch courses handled by this faculty
+            $courses_handled = 'None';
+            if ($raw_faculty_id) {
+                $stmtC = $pdo->prepare("SELECT course_name, section_name FROM `Section` WHERE faculty_id = :fid ORDER BY course_name ASC");
+                $stmtC->execute([':fid' => $raw_faculty_id]);
+                $classes = $stmtC->fetchAll();
+                
+                if (count($classes) > 0) {
+                    $class_list = [];
+                    foreach ($classes as $c) {
+                        $class_list[] = $c['course_name'] . " (" . $c['section_name'] . ")";
+                    }
+                    $courses_handled = implode(", ", $class_list);
+                }
+            }
         }
     }
 } catch (PDOException $e) {
@@ -137,7 +155,7 @@ try {
                         <div class="profile-data-item">College/Office: <?php echo htmlspecialchars($college); ?></div>
                         <div class="profile-data-item">Employed since: <?php echo htmlspecialchars($employed_since); ?></div>
                         <div class="profile-data-item">Position: <?php echo htmlspecialchars($position); ?></div>
-                        <div class="profile-data-item">Courses: N/A</div>
+                        <div class="profile-data-item" style="line-height: 1.5;">Courses: <?php echo htmlspecialchars($courses_handled); ?></div>
                     </div>
                 </div>
 
