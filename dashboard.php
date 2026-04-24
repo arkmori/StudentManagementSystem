@@ -1,3 +1,29 @@
+<?php
+session_start();
+
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {
+    header("Location: login.php");
+    exit();
+}
+
+require_once 'connection.php';
+
+$user_id = $_SESSION['user_id'];
+$display_name = 'User';
+
+try {
+    $stmt = $pdo->prepare("SELECT first_name, last_name FROM `Login` WHERE user_id = :user_id");
+    $stmt->bindParam(':user_id', $user_id);
+    $stmt->execute();
+    $user = $stmt->fetch();
+    
+    if ($user) {
+        $display_name = trim($user['first_name'] . ' ' . $user['last_name']);
+    }
+} catch (PDOException $e) {
+    $display_name = 'System User';
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -22,9 +48,9 @@
     <nav class="dropdown-menu">
         <ul class="menu-list">
             <li><a href="#">Home</a></li>
-            <li><a href="profile.html">My Profile</a></li>
+            <li><a href="profile.php">My Profile</a></li>
             <li><a href="#">Settings</a></li>
-            <li><a href="login.html">Log Out</a></li>
+            <li><a href="logout.php">Log Out</a></li>
         </ul>
     </nav>
 
@@ -32,11 +58,11 @@
         <div class="dashboard-wrapper">
             
             <div class="left-column">
-                <a href="profile.html" class="card welcome-card">
-                    <h1 class="welcome-title">Welcome, Julian Marte</h1>
+                <a href="profile.php" class="card welcome-card">
+                    <h1 class="welcome-title">Welcome, <?php echo htmlspecialchars($display_name); ?></h1>
                 </a>
 
-                <a href="reports.html" class="card stats-card">
+                <a href="reports.php" class="card stats-card">
                     <div class="stats-grid">
                         <div class="status-block">
                             <div class="status-number">147</div>
@@ -55,32 +81,32 @@
             </div>
 
             <div class="right-column">
-                <a href="calendar.html" class="card card-small">
+                <a href="calendar.php" class="card card-small">
                     <svg class="card-icon" viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zM19 20H5V9h14v11zM7 11h2v2H7v-2zm4 0h2v2h-2v-2zm4 0h2v2h-2v-2z"></path></svg>
                     <h2 class="card-title-small">Calendar</h2>
                 </a>
 
-                <a href="reports.html" class="card card-small">
+                <a href="reports.php" class="card card-small">
                     <svg class="card-icon" viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1s-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm6 17H6V7h12v13z"></path></svg>
                     <h2 class="card-title-small">Reports</h2>
                 </a>
 
-                <a href="studentenrollment.html" class="card card-small">
+                <a href="studentenrollment.php" class="card card-small">
                     <svg class="card-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"></path></svg>
                     <h2 class="card-title-small">Enrollment</h2>
                 </a>
 
-                <a href="studentlist.html" class="card card-small">
+                <a href="studentlist.php" class="card card-small">
                     <svg class="card-icon" viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1s-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm6 15H6V7h12v11zm-5-1h4V9h-4v7zM7 9h4v2H7V9zm0 3h4v2H7v-2zm0 3h4v2H7v-2z"></path></svg>
                     <h2 class="card-title-small">List</h2>
                 </a>
 
-                <a href="studentgrades.html" class="card card-small">
+                <a href="studentgrades.php" class="card card-small">
                     <svg class="card-icon" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"></path></svg>
                     <h2 class="card-title-small">Grades</h2>
                 </a>
 
-                <a href="clearance.html" class="card card-small">
+                <a href="clearance.php" class="card card-small">
                     <svg class="card-icon" viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"></path></svg>
                     <h2 class="card-title-small">Clearance</h2>
                 </a>

@@ -779,3 +779,26 @@ body.layout-dashboard {
         margin-top: 0 !important;
     }
 }
+
+/* ==========================================================================
+   16. REGISTRATION SPECIFIC COMPONENTS (Forced Alignment)
+   ========================================================================== */
+
+/* Creates the two-column side-by-side layout for Gender/Birth Date */
+.form-group-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+/* FORCED Right Alignment Container */
+.button-container-right {
+    display: flex !important;
+    justify-content: flex-end !important;
+    width: 100% !important;
+    margin-top: 15px;
+}
+
+.btn.btn-next {
+    padding: 10px 45px !important; 
+}
