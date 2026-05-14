@@ -38,6 +38,14 @@ if ($dir !== 'asc' && $dir !== 'desc') {
     $dir = 'asc';
 }
 
+$faculty_id = null;
+if ($_SESSION['role'] === 'faculty') {
+    $stmtFac = $pdo->prepare("SELECT faculty_id FROM `Faculty` WHERE user_id = ?");
+    $stmtFac->execute([$_SESSION['user_id']]);
+    $fac = $stmtFac->fetch();
+    $faculty_id = $fac ? $fac['faculty_id'] : null;
+}
+
 function sortLink($column, $label) {
     global $sort, $dir;
     $newDir = ($sort === $column && $dir === 'asc') ? 'desc' : 'asc';
@@ -51,15 +59,33 @@ function sortLink($column, $label) {
     return '<a href="studentlist.php?' . http_build_query($params) . '" style="color: inherit; text-decoration: none;">' . htmlspecialchars($label . $arrow) . '</a>';
 }
 
+$countSubquery = "(SELECT COUNT(*) FROM `Enrollment` e";
+if ($faculty_id) {
+    $countSubquery .= " JOIN `Section` sec2 ON e.section_id = sec2.section_id";
+}
+$countSubquery .= " WHERE e.student_id = s.student_id";
+if ($faculty_id) {
+    $countSubquery .= " AND sec2.faculty_id = :fid";
+}
+$countSubquery .= ")";
+
 $query = "
     SELECT s.student_id, l.first_name, l.last_name, c.college_name,
-           (SELECT COUNT(*) FROM `Enrollment` e WHERE e.student_id = s.student_id) as enrolled_count
+           " . $countSubquery . " as enrolled_count
     FROM `Student` s
     JOIN `Login` l ON s.user_id = l.user_id
     LEFT JOIN `College` c ON s.college_id = c.college_id
     WHERE 1=1
 ";
 $params = [];
+if ($faculty_id) {
+    $query .= " AND EXISTS (
+        SELECT 1 FROM `Enrollment` e2
+        JOIN `Section` sec2 ON e2.section_id = sec2.section_id
+        WHERE e2.student_id = s.student_id AND sec2.faculty_id = :fid
+    )";
+    $params[':fid'] = $faculty_id;
+}
 
 if (!empty($search)) {
     $query .= " AND (l.first_name LIKE :search OR l.last_name LIKE :search OR s.student_id LIKE :search)";
