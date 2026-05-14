@@ -1,6 +1,4 @@
 <?php
-session_start();
-
 $host = 'localhost';
 $dbname = 'StudentManagementSystem';
 $username = 'root';
@@ -15,7 +13,7 @@ try {
 }
 
 // Check for "Remember Me" cookies and auto-login
-if (!isset($_SESSION['user_id']) && isset($_COOKIE['remember_user_id']) && isset($_COOKIE['remember_token'])) {
+if (isset($_COOKIE['remember_user_id']) && isset($_COOKIE['remember_token']) && !isset($_SESSION['user_id'])) {
     $stored_user_id = $_COOKIE['remember_user_id'];
     $stored_token = $_COOKIE['remember_token'];
     

@@ -48,20 +48,40 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && !empty($student_id)) {
             $stmtClearance->execute([':sid' => $student_id, ':stat' => $_POST['clearance_status']]);
         }
 
-        // Enrollment logic now purely relies on the dropdown ID
-        $new_section_id = $_POST['section_id'] ?? '';
-        if (!empty($new_section_id)) {
-            $stmtCheckEnroll = $pdo->prepare("SELECT enrollment_id FROM `Enrollment` WHERE student_id = :sid ORDER BY enrollment_date DESC LIMIT 1");
-            $stmtCheckEnroll->execute([':sid' => $student_id]);
-            $enrollRow = $stmtCheckEnroll->fetch();
+        $selectedSections = $_POST['section_ids'] ?? [];
+        if (!is_array($selectedSections)) {
+            $selectedSections = [$selectedSections];
+        }
+        $selectedSections = array_unique(array_filter(array_map('intval', $selectedSections), function($id) {
+            return $id > 0;
+        }));
 
-            if ($enrollRow) {
-                $stmtUpdateEnroll = $pdo->prepare("UPDATE `Enrollment` SET section_id = :secid WHERE enrollment_id = :eid");
-                $stmtUpdateEnroll->execute([':secid' => $new_section_id, ':eid' => $enrollRow['enrollment_id']]);
-            } else {
-                $stmtInsertEnroll = $pdo->prepare("INSERT INTO `Enrollment` (student_id, section_id, enrollment_date, status) VALUES (:sid, :secid, CURDATE(), 'Active')");
-                $stmtInsertEnroll->execute([':sid' => $student_id, ':secid' => $new_section_id]);
+        $stmtEnrollList = $pdo->prepare("SELECT enrollment_id, section_id, status FROM `Enrollment` WHERE student_id = :sid");
+        $stmtEnrollList->execute([':sid' => $student_id]);
+        $currentEnrollments = [];
+        foreach ($stmtEnrollList->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $currentEnrollments[$row['section_id']] = ['enrollment_id' => $row['enrollment_id'], 'status' => $row['status']];
+        }
+
+        $sectionsToAdd = array_diff($selectedSections, array_keys($currentEnrollments));
+        $sectionsToRemove = array_diff(array_keys($currentEnrollments), $selectedSections);
+
+        $stmtInsertEnroll = $pdo->prepare("INSERT INTO `Enrollment` (student_id, section_id, enrollment_date, status) VALUES (:sid, :secid, CURDATE(), 'Active')");
+        $stmtUpdateEnroll = $pdo->prepare("UPDATE `Enrollment` SET status = 'Active' WHERE enrollment_id = :eid");
+        foreach ($selectedSections as $section_id) {
+            if (isset($currentEnrollments[$section_id])) {
+                if ($currentEnrollments[$section_id]['status'] !== 'Active') {
+                    $stmtUpdateEnroll->execute([':eid' => $currentEnrollments[$section_id]['enrollment_id']]);
+                }
             }
+        }
+        foreach ($sectionsToAdd as $section_id) {
+            $stmtInsertEnroll->execute([':sid' => $student_id, ':secid' => $section_id]);
+        }
+
+        $stmtDeactivateEnroll = $pdo->prepare("UPDATE `Enrollment` SET status = 'Inactive' WHERE enrollment_id = :eid");
+        foreach ($sectionsToRemove as $section_id) {
+            $stmtDeactivateEnroll->execute([':eid' => $currentEnrollments[$section_id]['enrollment_id']]);
         }
 
         $pdo->commit();
@@ -87,10 +107,9 @@ $clearanceInfo = $stmtClear->fetch();
 $clearance_status = $clearanceInfo ? $clearanceInfo['status'] : 'Not Cleared';
 
 // Fetch current section ID to auto-select in the dropdown
-$stmtEnroll = $pdo->prepare("SELECT section_id FROM `Enrollment` WHERE student_id = :sid ORDER BY enrollment_date DESC LIMIT 1");
+$stmtEnroll = $pdo->prepare("SELECT section_id FROM `Enrollment` WHERE student_id = :sid");
 $stmtEnroll->execute([':sid' => $student_id]);
-$enrollmentInfo = $stmtEnroll->fetch();
-$current_section_id = $enrollmentInfo ? $enrollmentInfo['section_id'] : '';
+$current_section_ids = array_column($stmtEnroll->fetchAll(PDO::FETCH_ASSOC), 'section_id');
 
 $colleges = $pdo->query("SELECT * FROM `College`")->fetchAll();
 
@@ -192,15 +211,15 @@ $dropdownStyle = "width: 100%; padding: 12px 20px; border: 3px solid #BC5F04; bo
                 <h3 style="color: var(--primary-accent); margin-bottom: 15px;">Enrollment & Clearance</h3>
 
                 <div class="form-group">
-                    <label>Assign Course / Section</label>
-                    <select name="section_id" style="<?php echo $dropdownStyle; ?>">
-                        <option value="">-- No Enrollment --</option>
+                    <label>Assign Course / Section(s)</label>
+                    <select id="edit_section_ids" name="section_ids[]" multiple size="6" style="<?php echo $dropdownStyle; ?> padding-top: 12px; padding-bottom: 12px;">
                         <?php foreach($all_sections as $sec): ?>
-                            <option value="<?php echo $sec['section_id']; ?>" <?php if($sec['section_id'] == $current_section_id) echo 'selected'; ?>>
+                            <option value="<?php echo $sec['section_id']; ?>" <?php if(in_array($sec['section_id'], $current_section_ids)) echo 'selected'; ?> >
                                 <?php echo htmlspecialchars($sec['course_name'] . ' - ' . $sec['section_name'] . ' (Prof. ' . ($sec['last_name'] ?? 'Unassigned') . ')'); ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
+                    <div id="edit-selected-sections-display" style="margin-top: 10px; font-size: 0.95rem; color: #333;"></div>
                 </div>
 
                 <div class="form-group">
@@ -221,5 +240,25 @@ $dropdownStyle = "width: 100%; padding: 12px 20px; border: 3px solid #BC5F04; bo
     
     <footer></footer>
 
+    <script>
+        function updateEditSelection() {
+            const select = document.getElementById('edit_section_ids');
+            const display = document.getElementById('edit-selected-sections-display');
+            if (!select || !display) return;
+            const selected = Array.from(select.selectedOptions).map(opt => opt.textContent.trim());
+            if (selected.length === 0) {
+                display.textContent = 'No sections currently assigned.';
+                return;
+            }
+            display.textContent = 'Assigned sections: ' + selected.join(', ');
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+            const sectionSelect = document.getElementById('edit_section_ids');
+            if (sectionSelect) {
+                sectionSelect.addEventListener('change', updateEditSelection);
+                updateEditSelection();
+            }
+        });
+    </script>
 </body>
 </html>

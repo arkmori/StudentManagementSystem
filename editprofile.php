@@ -29,19 +29,56 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $stmtFac = $pdo->prepare("UPDATE `Faculty` SET college_id = :cid WHERE user_id = :uid");
         $stmtFac->execute([':cid' => $_POST['college_id'], ':uid' => $user_id]);
 
-        // Process newly added course/section if provided
-        if ($is_faculty && $faculty_id && !empty($_POST['new_course_name']) && !empty($_POST['new_section_name'])) {
-            $nc = trim($_POST['new_course_name']);
-            $ns = trim($_POST['new_section_name']);
-            
-            $stmtC = $pdo->prepare("SELECT course_id FROM `Course` WHERE course_name = :c");
-            $stmtC->execute([':c' => $nc]);
-            if (!$stmtC->fetch()) {
-                $pdo->prepare("INSERT INTO `Course` (course_name) VALUES (:c)")->execute([':c' => $nc]);
+        if ($is_faculty && $faculty_id) {
+            $selectedCourseIds = $_POST['enroll_courses'] ?? [];
+            if (!is_array($selectedCourseIds)) {
+                $selectedCourseIds = [$selectedCourseIds];
             }
-            
-            $stmtS = $pdo->prepare("INSERT INTO `Section` (course_name, section_name, faculty_id) VALUES (:c, :s, :fid)");
-            $stmtS->execute([':c' => $nc, ':s' => $ns, ':fid' => $faculty_id]);
+
+            $stmtCourseName = $pdo->prepare("SELECT course_name FROM `Course` WHERE course_id = :cid");
+            $stmtSectionExists = $pdo->prepare("SELECT COUNT(*) FROM `Section` WHERE faculty_id = :fid AND course_name = :course_name");
+            $stmtInsertSection = $pdo->prepare("INSERT INTO `Section` (course_name, section_name, faculty_id) VALUES (:course_name, :section_name, :fid)");
+            foreach ($selectedCourseIds as $courseId) {
+                if ($courseId === '__add_new_course__' || empty($courseId)) {
+                    continue;
+                }
+                $stmtCourseName->execute([':cid' => intval($courseId)]);
+                $courseName = $stmtCourseName->fetchColumn();
+                if ($courseName) {
+                    $stmtSectionExists->execute([':fid' => $faculty_id, ':course_name' => $courseName]);
+                    if ($stmtSectionExists->fetchColumn() == 0) {
+                        $stmtInsertSection->execute([':course_name' => $courseName, ':section_name' => 'General', ':fid' => $faculty_id]);
+                    }
+                }
+            }
+
+            if (!empty(trim($_POST['new_course_name'] ?? ''))) {
+                $newCourseName = trim($_POST['new_course_name']);
+                $stmtC = $pdo->prepare("SELECT course_id FROM `Course` WHERE course_name = :c");
+                $stmtC->execute([':c' => $newCourseName]);
+                if (!$stmtC->fetch()) {
+                    $pdo->prepare("INSERT INTO `Course` (course_name) VALUES (:c)")->execute([':c' => $newCourseName]);
+                }
+                $stmtSectionExists->execute([':fid' => $faculty_id, ':course_name' => $newCourseName]);
+                if ($stmtSectionExists->fetchColumn() == 0) {
+                    $stmtInsertSection->execute([':course_name' => $newCourseName, ':section_name' => 'General', ':fid' => $faculty_id]);
+                }
+            }
+
+            if (!empty($_POST['assign_section']) && $_POST['assign_section'] === '__add_new_section__') {
+                $newSectionName = trim($_POST['new_section_name'] ?? '');
+                if ($newSectionName !== '') {
+                    $sectionCourseName = '';
+                    if (!empty($_POST['new_section_course_id']) && $_POST['new_section_course_id'] !== '__none__') {
+                        $stmtCourseName->execute([':cid' => intval($_POST['new_section_course_id'])]);
+                        $sectionCourseName = $stmtCourseName->fetchColumn() ?: '';
+                    }
+                    if ($sectionCourseName === '' && !empty($_POST['new_course_name'])) {
+                        $sectionCourseName = trim($_POST['new_course_name']);
+                    }
+                    $stmtInsertSection->execute([':course_name' => $sectionCourseName, ':section_name' => $newSectionName, ':fid' => $faculty_id]);
+                }
+            }
         }
 
         $pdo->commit();
@@ -61,10 +98,11 @@ $stmt->execute([':uid' => $user_id]);
 $user = $stmt->fetch();
 
 $colleges = $pdo->query("SELECT * FROM `College`")->fetchAll();
+$all_courses = $pdo->query("SELECT course_id, course_name FROM `Course` ORDER BY course_name ASC")->fetchAll();
 
 $my_classes = [];
 if ($is_faculty && $faculty_id) {
-    $stmtMC = $pdo->prepare("SELECT course_name, section_name FROM `Section` WHERE faculty_id = :fid ORDER BY course_name ASC");
+    $stmtMC = $pdo->prepare("SELECT section_id, course_name, section_name FROM `Section` WHERE faculty_id = :fid ORDER BY course_name ASC, section_name ASC");
     $stmtMC->execute([':fid' => $faculty_id]);
     $my_classes = $stmtMC->fetchAll();
 }
@@ -180,8 +218,8 @@ $dropdownStyle = "width: 100%; padding: 12px 20px; border: 3px solid #BC5F04; bo
 
                 <?php if ($is_faculty): ?>
                     <hr style="margin: 25px 0;">
-                    <h3 style="color: var(--primary-accent); margin-bottom: 15px;">Add Handled Course</h3>
-                    
+                    <h3 style="color: var(--primary-accent); margin-bottom: 15px;">Faculty Course & Section Management</h3>
+
                     <?php if(count($my_classes) > 0): ?>
                         <p style="color: var(--primary-accent); font-weight: bold; margin-bottom: 5px; font-size: 0.9rem;">Currently Teaching:</p>
                         <ul style="color: var(--primary-accent); padding-left: 20px; margin-bottom: 20px; font-size: 0.9rem;">
@@ -192,13 +230,43 @@ $dropdownStyle = "width: 100%; padding: 12px 20px; border: 3px solid #BC5F04; bo
                     <?php endif; ?>
 
                     <div class="form-group">
-                        <label>New Course Name</label>
-                        <input type="text" name="new_course_name" placeholder="e.g. CS101">
+                        <label>Enroll Courses</label>
+                        <select id="enroll_courses" name="enroll_courses[]" multiple size="6" style="<?php echo $dropdownStyle; ?>">
+                            <?php foreach ($all_courses as $course): ?>
+                                <option value="<?php echo $course['course_id']; ?>" <?php if(in_array($course['course_name'], array_column($my_classes, 'course_name'))) echo 'selected'; ?>>
+                                    <?php echo htmlspecialchars($course['course_name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                            <option value="__add_new_course__">Add New Course...</option>
+                        </select>
+                        <div id="new-course-container" style="display:none; margin-top: 15px;">
+                            <label>New Course Name</label>
+                            <input type="text" name="new_course_name" placeholder="e.g. CS101" style="<?php echo $dropdownStyle; ?>">
+                        </div>
                     </div>
 
                     <div class="form-group">
-                        <label>New Section Name</label>
-                        <input type="text" name="new_section_name" placeholder="e.g. 3A">
+                        <label>Assign Section</label>
+                        <select id="assign_section" name="assign_section" style="<?php echo $dropdownStyle; ?>">
+                            <option value="">Select a Section</option>
+                            <?php foreach ($my_classes as $section): ?>
+                                <option value="<?php echo $section['section_id']; ?>">
+                                    <?php echo htmlspecialchars($section['course_name'] . ' - ' . $section['section_name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                            <option value="__add_new_section__">Add New Section...</option>
+                        </select>
+                        <div id="new-section-container" style="display:none; margin-top: 15px;">
+                            <label>New Section Name</label>
+                            <input type="text" name="new_section_name" placeholder="e.g. 3A" style="<?php echo $dropdownStyle; ?>">
+                            <label style="margin-top: 15px; display: block;">Course for New Section</label>
+                            <select name="new_section_course_id" style="<?php echo $dropdownStyle; ?>">
+                                <option value="__none__">Select Course (optional)</option>
+                                <?php foreach ($all_courses as $course): ?>
+                                    <option value="<?php echo $course['course_id']; ?>"><?php echo htmlspecialchars($course['course_name']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
                     </div>
                 <?php endif; ?>
 
@@ -211,6 +279,36 @@ $dropdownStyle = "width: 100%; padding: 12px 20px; border: 3px solid #BC5F04; bo
     </main>
 
     <footer></footer>
+
+    <script>
+        function toggleNewCourseField() {
+            const enrollSelect = document.getElementById('enroll_courses');
+            const newCourseContainer = document.getElementById('new-course-container');
+            if (!enrollSelect || !newCourseContainer) return;
+            const hasAddNewCourse = Array.from(enrollSelect.selectedOptions).some(opt => opt.value === '__add_new_course__');
+            newCourseContainer.style.display = hasAddNewCourse ? 'block' : 'none';
+        }
+
+        function toggleNewSectionField() {
+            const assignSelect = document.getElementById('assign_section');
+            const newSectionContainer = document.getElementById('new-section-container');
+            if (!assignSelect || !newSectionContainer) return;
+            newSectionContainer.style.display = assignSelect.value === '__add_new_section__' ? 'block' : 'none';
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const enrollSelect = document.getElementById('enroll_courses');
+            const assignSelect = document.getElementById('assign_section');
+            if (enrollSelect) {
+                enrollSelect.addEventListener('change', toggleNewCourseField);
+                toggleNewCourseField();
+            }
+            if (assignSelect) {
+                assignSelect.addEventListener('change', toggleNewSectionField);
+                toggleNewSectionField();
+            }
+        });
+    </script>
 
 </body>
 </html>

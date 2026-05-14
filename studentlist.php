@@ -9,7 +9,47 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {
 require_once 'connection.php';
 
 $search = $_GET['search'] ?? '';
-$filter = $_GET['filter'] ?? '';
+$view = $_GET['view'] ?? 'all';
+$sort = $_GET['sort'] ?? 'student_id';
+$dir = $_GET['dir'] ?? 'asc';
+
+$allowedSorts = [
+    'student_id' => 's.student_id',
+    'name' => 'l.last_name, l.first_name',
+    'college' => 'c.college_name',
+    'enrolled' => 'enrolled_count'
+];
+
+$filter = '';
+if (strpos($view, 'sort:') === 0) {
+    $sort = substr($view, 5);
+} elseif (strpos($view, 'college:') === 0) {
+    $filter = substr($view, 8);
+} elseif ($view === 'all') {
+    $filter = '';
+} elseif ($view !== '') {
+    $filter = $view;
+}
+
+if (!isset($allowedSorts[$sort])) {
+    $sort = 'student_id';
+}
+if ($dir !== 'asc' && $dir !== 'desc') {
+    $dir = 'asc';
+}
+
+function sortLink($column, $label) {
+    global $sort, $dir;
+    $newDir = ($sort === $column && $dir === 'asc') ? 'desc' : 'asc';
+    $params = $_GET;
+    $params['sort'] = $column;
+    $params['dir'] = $newDir;
+    $arrow = '';
+    if ($sort === $column) {
+        $arrow = $dir === 'asc' ? ' ▲' : ' ▼';
+    }
+    return '<a href="studentlist.php?' . http_build_query($params) . '" style="color: inherit; text-decoration: none;">' . htmlspecialchars($label . $arrow) . '</a>';
+}
 
 $query = "
     SELECT s.student_id, l.first_name, l.last_name, c.college_name,
@@ -30,6 +70,8 @@ if (!empty($filter)) {
     $query .= " AND c.college_name = :filter";
     $params[':filter'] = $filter;
 }
+
+$query .= " ORDER BY " . $allowedSorts[$sort] . " " . $dir;
 
 $stmt = $pdo->prepare($query);
 $stmt->execute($params);
@@ -81,11 +123,20 @@ $colleges = $pdo->query("SELECT college_name FROM `College`")->fetchAll(PDO::FET
                     <button type="button" class="btn-solid" onclick="window.location.href='studentenrollment.php'">Add Student</button>
                     <button type="button" class="btn-solid" onclick="window.location.href='studentgrades.php'">View/Update Grades</button>
                     
-                    <select name="filter" class="btn-solid" style="background-color: #fff; color: var(--primary-accent) !important; border: 2px solid var(--primary-accent); cursor: pointer;">
-                        <option value="">All Colleges</option>
+                    <select name="view" class="btn-solid" style="background-color: #fff; color: var(--primary-accent) !important; border: 2px solid var(--primary-accent); cursor: pointer;">
+                        <option value="all" <?php if($view == 'all') echo 'selected'; ?>>All Colleges</option>
                         <?php foreach($colleges as $col): ?>
-                            <option value="<?php echo htmlspecialchars($col); ?>" <?php if($filter == $col) echo 'selected'; ?>><?php echo htmlspecialchars($col); ?></option>
+                            <option value="college:<?php echo htmlspecialchars($col); ?>" <?php if($view == 'college:' . $col) echo 'selected'; ?>><?php echo htmlspecialchars($col); ?></option>
                         <?php endforeach; ?>
+                        <option value="sort:student_id" <?php if($view == 'sort:student_id') echo 'selected'; ?>>Sort by ID</option>
+                        <option value="sort:name" <?php if($view == 'sort:name') echo 'selected'; ?>>Sort by Name</option>
+                        <option value="sort:college" <?php if($view == 'sort:college') echo 'selected'; ?>>Sort by College</option>
+                        <option value="sort:enrolled" <?php if($view == 'sort:enrolled') echo 'selected'; ?>>Sort by Enrolled</option>
+                    </select>
+
+                    <select name="dir" class="btn-solid" style="background-color: #fff; color: var(--primary-accent) !important; border: 2px solid var(--primary-accent); cursor: pointer;">
+                        <option value="asc" <?php if($dir == 'asc') echo 'selected'; ?>>Ascending</option>
+                        <option value="desc" <?php if($dir == 'desc') echo 'selected'; ?>>Descending</option>
                     </select>
                     
                     <input type="text" name="search" value="<?php echo htmlspecialchars($search); ?>" placeholder="Search ID or Name" style="padding: 8px 12px; border: 2px solid var(--primary-accent); border-radius: 20px; outline: none; color: var(--primary-accent);">
@@ -97,10 +148,10 @@ $colleges = $pdo->query("SELECT college_name FROM `College`")->fetchAll(PDO::FET
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Student ID</th>
-                            <th>Student Name</th>
-                            <th>College</th>
-                            <th>Courses Enrolled</th>
+                            <th><?php echo sortLink('student_id', 'Student ID'); ?></th>
+                            <th><?php echo sortLink('name', 'Student Name'); ?></th>
+                            <th><?php echo sortLink('college', 'College'); ?></th>
+                            <th><?php echo sortLink('enrolled', 'Courses Enrolled'); ?></th>
                             <th>Status</th>
                             <th class="icon-col">
                                 <svg class="edit-icon" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>

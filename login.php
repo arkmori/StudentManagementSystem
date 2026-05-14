@@ -97,13 +97,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 </div>
 
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 20px;">
-                    <input type="checkbox" id="show-password" onclick="togglePassword()" style="width: auto; margin: 0; cursor: pointer;">
-                    <label for="show-password" style="margin: 0; font-size: 0.9rem; cursor: pointer; color: inherit;">Show Password</label>
+                    <input type="checkbox" id="show-password" onclick="togglePassword()" style="width: auto; margin: 0; cursor: pointer; accent-color: #BC5F04;">
+                    <label for="show-password" style="margin: 0; font-size: 0.9rem; cursor: pointer; color: #BC5F04;">Show Password</label>
                 </div>
 
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 20px;">
-                    <input type="checkbox" id="remember_me" name="remember_me" style="width: auto; margin: 0; cursor: pointer;">
-                    <label for="remember_me" style="margin: 0; font-size: 0.9rem; cursor: pointer; color: inherit;">Remember Me</label>
+                    <input type="checkbox" id="remember_me" name="remember_me" style="width: auto; margin: 0; cursor: pointer; accent-color: #BC5F04;">
+                    <label for="remember_me" style="margin: 0; font-size: 0.9rem; cursor: pointer; color: #BC5F04;">Remember Me</label>
                 </div>
                 
                 <button type="submit" class="btn btn-primary">Log In</button>

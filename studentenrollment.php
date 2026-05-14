@@ -9,6 +9,78 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {
 require_once 'connection.php';
 $message = '';
 
+$existingColleges = $pdo->query("SELECT college_name FROM `College` ORDER BY college_name ASC")->fetchAll(PDO::FETCH_COLUMN);
+$defaultColleges = [
+    'College of Nursing',
+    'College of Business Management',
+    'College of Human Ecology'
+];
+$collegeOptions = array_unique(array_merge($defaultColleges, $existingColleges));
+
+$facultyCourses = [];
+$faculty_id = null;
+$sections = [];
+if ($_SESSION['role'] === 'faculty') {
+    $stmtFaculty = $pdo->prepare("SELECT faculty_id FROM `Faculty` WHERE user_id = ?");
+    $stmtFaculty->execute([$_SESSION['user_id']]);
+    $faculty = $stmtFaculty->fetch();
+    $faculty_id = $faculty ? $faculty['faculty_id'] : null;
+    if ($faculty_id) {
+        $stmtCourses = $pdo->prepare("SELECT DISTINCT course_name FROM `Section` WHERE faculty_id = ? ORDER BY course_name ASC");
+        $stmtCourses->execute([$faculty_id]);
+        $facultyCourses = array_column($stmtCourses->fetchAll(PDO::FETCH_ASSOC), 'course_name');
+
+        $stmtSections = $pdo->prepare("SELECT section_id, course_name, section_name FROM `Section` WHERE faculty_id = ? ORDER BY course_name ASC, section_name ASC");
+        $stmtSections->execute([$faculty_id]);
+        $sections = $stmtSections->fetchAll(PDO::FETCH_ASSOC);
+    }
+}
+
+if ($_SESSION['role'] !== 'faculty' || !$faculty_id) {
+    $sections = $pdo->query("SELECT section_id, course_name, section_name FROM `Section` ORDER BY course_name ASC, section_name ASC")->fetchAll();
+    $facultyCourses = $pdo->query("SELECT course_name FROM `Course` ORDER BY course_name ASC")->fetchAll(PDO::FETCH_COLUMN);
+}
+
+function getSectionId(PDO $pdo, string $name) {
+    $course = null;
+    $section = trim($name);
+    if (strpos($name, '-') !== false) {
+        $parts = explode('-', $name, 2);
+        $course = trim($parts[0]);
+        $section = trim($parts[1]);
+    }
+    if ($course !== null && $course !== '') {
+        $stmt = $pdo->prepare("SELECT section_id FROM `Section` WHERE course_name = :course AND section_name = :section");
+        $stmt->execute([':course' => $course, ':section' => $section]);
+    } else {
+        $stmt = $pdo->prepare("SELECT section_id FROM `Section` WHERE section_name = :section");
+        $stmt->execute([':section' => $section]);
+    }
+    $row = $stmt->fetch();
+    if ($row) {
+        return $row['section_id'];
+    }
+    $stmtInsert = $pdo->prepare("INSERT INTO `Section` (course_name, section_name) VALUES (:course, :section)");
+    $stmtInsert->execute([':course' => $course, ':section' => $section]);
+    return $pdo->lastInsertId();
+}
+
+function getSectionIdForCourse(PDO $pdo, ?string $courseName, string $section) {
+    $section = trim($section);
+    if ($courseName === null) {
+        return getSectionId($pdo, $section);
+    }
+    $stmt = $pdo->prepare("SELECT section_id FROM `Section` WHERE course_name = :course AND section_name = :section");
+    $stmt->execute([':course' => $courseName, ':section' => $section]);
+    $row = $stmt->fetch();
+    if ($row) {
+        return $row['section_id'];
+    }
+    $stmtInsert = $pdo->prepare("INSERT INTO `Section` (course_name, section_name, faculty_id) VALUES (:course, :section, :fid)");
+    $stmtInsert->execute([':course' => $courseName, ':section' => $section, ':fid' => $GLOBALS['faculty_id'] ?? null]);
+    return $pdo->lastInsertId();
+}
+
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $lastName = $_POST['lastName'] ?? '';
     $firstName = $_POST['firstName'] ?? '';
@@ -19,6 +91,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $collegeName = $_POST['college'] ?? '';
     $yearLevel = $_POST['yearLevel'] ?? 1;
     $sectionName = $_POST['section'] ?? '';
+    $courseSelection = $_POST['course_id'] ?? '';
+    $newCourseName = trim($_POST['new_course_name'] ?? '');
 
     try {
         $pdo->beginTransaction();
@@ -34,7 +108,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         $defaultPassword = password_hash('password123', PASSWORD_DEFAULT);
-        $username = !empty($studentId) ? $studentId : strtolower($firstName . $lastName);
+        if (!empty($studentId)) {
+            $username = $studentId;
+            $useGeneratedUsername = false;
+        } else {
+            $username = 'tmp_' . bin2hex(random_bytes(4));
+            $useGeneratedUsername = true;
+        }
 
         $stmtUser = $pdo->prepare("
             INSERT INTO `Login` (user_name, password, first_name, middle_name, last_name, gender, date_of_birth, role_id) 
@@ -52,6 +132,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         ]);
         $new_user_id = $pdo->lastInsertId();
 
+        if (!empty($useGeneratedUsername)) {
+            $newUsernameBase = 'S' . str_pad($new_user_id, 4, '0', STR_PAD_LEFT);
+            $newUsername = $newUsernameBase;
+            $suffix = 1;
+            $stmtCheckUser = $pdo->prepare("SELECT COUNT(*) FROM `Login` WHERE user_name = :uname");
+            while (true) {
+                $stmtCheckUser->execute([':uname' => $newUsername]);
+                if ($stmtCheckUser->fetchColumn() == 0) {
+                    break;
+                }
+                $newUsername = $newUsernameBase . '_' . $suffix;
+                $suffix++;
+            }
+            $stmtUpdateUser = $pdo->prepare("UPDATE `Login` SET user_name = :uname WHERE user_id = :uid");
+            $stmtUpdateUser->execute([':uname' => $newUsername, ':uid' => $new_user_id]);
+            $username = $newUsername;
+        }
+
         $stmtCol = $pdo->prepare("SELECT college_id FROM `College` WHERE college_name = :cname");
         $stmtCol->execute([':cname' => $collegeName]);
         $colRow = $stmtCol->fetch();
@@ -63,6 +161,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $college_id = $colRow ? $colRow['college_id'] : NULL;
         }
 
+        $courseName = null;
+        if ($courseSelection === '__add_new_course__' && $newCourseName !== '') {
+            $stmtCourseCheck = $pdo->prepare("SELECT course_id FROM `Course` WHERE course_name = :c");
+            $stmtCourseCheck->execute([':c' => $newCourseName]);
+            if (!$stmtCourseCheck->fetch()) {
+                $stmtInsertCourse = $pdo->prepare("INSERT INTO `Course` (course_name) VALUES (:c)");
+                $stmtInsertCourse->execute([':c' => $newCourseName]);
+            }
+            $courseName = $newCourseName;
+        } elseif ($courseSelection !== '' && $courseSelection !== '__add_new_course__') {
+            $courseName = $courseSelection;
+        }
+
         $stmtStudent = $pdo->prepare("INSERT INTO `Student` (user_id, year_level, college_id) VALUES (:uid, :ylvl, :cid)");
         $stmtStudent->execute([
             ':uid' => $new_user_id,
@@ -71,23 +182,47 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         ]);
         $new_student_id = $pdo->lastInsertId();
 
-        if (!empty($sectionName)) {
-            $stmtSec = $pdo->prepare("SELECT section_id FROM `Section` WHERE section_name = :sname");
-            $stmtSec->execute([':sname' => $sectionName]);
-            $secRow = $stmtSec->fetch();
-            if (!$secRow) {
-                $stmtInsertSec = $pdo->prepare("INSERT INTO `Section` (section_name) VALUES (:sname)");
-                $stmtInsertSec->execute([':sname' => $sectionName]);
-                $section_id = $pdo->lastInsertId();
-            } else {
-                $section_id = $secRow['section_id'];
+        $sectionIds = [];
+        if (!empty($_POST['section_ids'])) {
+            $selected = $_POST['section_ids'];
+            if (!is_array($selected)) {
+                $selected = [$selected];
             }
+            foreach ($selected as $sid) {
+                $sid = intval($sid);
+                if ($sid > 0) {
+                    $sectionIds[] = $sid;
+                }
+            }
+        }
 
+        if (!empty($newCourseName) && $courseSelection === '__add_new_course__') {
+            // Ensure the new course is visible for current session
+            if (!in_array($newCourseName, $facultyCourses, true)) {
+                $facultyCourses[] = $newCourseName;
+            }
+        }
+
+        if (!empty($sectionName)) {
+            $sectionIds[] = getSectionIdForCourse($pdo, $courseName, $sectionName);
+        }
+
+        $sectionIds = array_unique(array_filter($sectionIds, function($id) {
+            return $id > 0;
+        }));
+
+        if (!empty($sectionIds)) {
             $stmtEnroll = $pdo->prepare("INSERT INTO `Enrollment` (student_id, section_id, enrollment_date, status) VALUES (:sid, :secid, CURDATE(), 'Active')");
-            $stmtEnroll->execute([
-                ':sid' => $new_student_id,
-                ':secid' => $section_id
-            ]);
+            $stmtCheckEnroll = $pdo->prepare("SELECT COUNT(*) FROM `Enrollment` WHERE student_id = :sid AND section_id = :secid");
+            foreach ($sectionIds as $section_id) {
+                $stmtCheckEnroll->execute([':sid' => $new_student_id, ':secid' => $section_id]);
+                if ($stmtCheckEnroll->fetchColumn() == 0) {
+                    $stmtEnroll->execute([
+                        ':sid' => $new_student_id,
+                        ':secid' => $section_id
+                    ]);
+                }
+            }
         }
 
         $pdo->commit();
@@ -172,7 +307,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         </div>
                         <div class="inline-form-group">
                             <label for="sex">Sex:</label>
-                            <input type="text" id="sex" name="sex" placeholder="Male / Female">
+                            <select id="sex" name="sex" style="flex-grow: 1; padding: 8px 12px; border: 2px solid var(--primary-accent); border-radius: 4px; font-size: 1rem; color: var(--primary-accent); background-color: var(--white); transition: box-shadow 0.2s, border-color 0.2s; outline: none;">
+                                <option value="">Select Sex</option>
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -180,24 +319,48 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <h2 class="section-title" style="margin-top: 45px;">Admissions</h2>
                 <div class="admissions-grid">
                     <div class="inline-form-group">
-                        <label for="studentId">Student Username:</label>
-                        <input type="text" id="studentId" name="studentId" placeholder="Used for Login">
+                        <label for="studentId">Student ID (optional):</label>
+                        <input type="text" id="studentId" name="studentId" placeholder="Enter existing Student ID if already assigned">
                     </div>
                     <div class="inline-form-group">
                         <label for="college">College:</label>
-                        <input type="text" id="college" name="college" placeholder="e.g. College of Engineering">
+                        <select id="college" name="college" style="flex-grow: 1; padding: 8px 12px; border: 2px solid var(--primary-accent); border-radius: 4px; font-size: 1rem; color: var(--primary-accent); background-color: var(--white); transition: box-shadow 0.2s, border-color 0.2s; outline: none;">
+                            <option value="">Select College</option>
+                            <?php foreach ($collegeOptions as $collegeOption): ?>
+                                <option value="<?php echo htmlspecialchars($collegeOption); ?>"><?php echo htmlspecialchars($collegeOption); ?></option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
                     <div class="inline-form-group">
                         <label for="yearLevel">Year Level:</label>
                         <input type="number" id="yearLevel" name="yearLevel" value="1">
                     </div>
                     <div class="inline-form-group">
-                        <label for="courses">Enroll in Course/s:</label>
-                        <input type="text" id="courses" name="courses">
+                        <label for="course_id">Enroll Course:</label>
+                        <select id="course_id" name="course_id" style="flex-grow: 1; padding: 8px 12px; border: 2px solid var(--primary-accent); border-radius: 4px; font-size: 1rem; color: var(--primary-accent); background-color: var(--white); transition: box-shadow 0.2s, border-color 0.2s; outline: none;">
+                            <option value="">Select a course</option>
+                            <?php foreach ($facultyCourses as $courseName): ?>
+                                <option value="<?php echo htmlspecialchars($courseName); ?>"><?php echo htmlspecialchars($courseName); ?></option>
+                            <?php endforeach; ?>
+                            <option value="__add_new_course__">Add New Course...</option>
+                        </select>
+                    </div>
+                    <div class="inline-form-group" id="new-course-container" style="display: none; width: 100%;">
+                        <label for="new_course_name">New Course Name</label>
+                        <input type="text" id="new_course_name" name="new_course_name" placeholder="Enter new course name" style="flex-grow: 1; padding: 8px 12px; border: 2px solid var(--primary-accent); border-radius: 4px; font-size: 1rem; color: var(--primary-accent); background-color: var(--white); transition: box-shadow 0.2s, border-color 0.2s; outline: none;">
                     </div>
                     <div class="inline-form-group">
-                        <label for="section">Section:</label>
-                        <input type="text" id="section" name="section">
+                        <label for="section_ids">Select Section/s to Enroll:</label>
+                        <select id="section_ids" name="section_ids[]" multiple size="5" style="flex-grow: 1; padding: 8px 12px; border: 2px solid var(--primary-accent); border-radius: 4px; font-size: 1rem; color: var(--primary-accent); background-color: var(--white); transition: box-shadow 0.2s, border-color 0.2s; outline: none;">
+                            <?php foreach ($sections as $sec): ?>
+                                <option value="<?php echo $sec['section_id']; ?>"><?php echo htmlspecialchars(($sec['course_name'] ?? 'Subject') . ' - ' . ($sec['section_name'] ?? 'Section')); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div id="selected-sections-display" style="margin-top: 10px; font-size: 0.95rem; color: #333;"></div>
+                    </div>
+                    <div class="inline-form-group">
+                        <label for="section">Additional Section Name:</label>
+                        <input type="text" id="section" name="section" placeholder="e.g. 5A or Course - Section">
                     </div>
                 </div>
 
@@ -211,5 +374,17 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     <footer></footer>
 
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const courseSelect = document.getElementById('course_id');
+            const newCourseContainer = document.getElementById('new-course-container');
+            if (!courseSelect || !newCourseContainer) return;
+            function updateNewCourseVisibility() {
+                newCourseContainer.style.display = courseSelect.value === '__add_new_course__' ? 'block' : 'none';
+            }
+            courseSelect.addEventListener('change', updateNewCourseVisibility);
+            updateNewCourseVisibility();
+        });
+    </script>
 </body>
 </html>

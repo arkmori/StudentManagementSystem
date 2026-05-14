@@ -8,6 +8,34 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {
 
 require_once 'connection.php';
 
+$sort = $_GET['sort'] ?? 'student_id';
+$dir = $_GET['dir'] ?? 'asc';
+$allowedSorts = [
+    'student_id' => 's.student_id',
+    'name' => 'l.last_name, l.first_name',
+    'section' => 'sec.section_name',
+    'status' => 'g.status'
+];
+if (!isset($allowedSorts[$sort])) {
+    $sort = 'student_id';
+}
+if ($dir !== 'asc' && $dir !== 'desc') {
+    $dir = 'asc';
+}
+
+function sortLink($column, $label) {
+    global $sort, $dir;
+    $newDir = ($sort === $column && $dir === 'asc') ? 'desc' : 'asc';
+    $params = $_GET;
+    $params['sort'] = $column;
+    $params['dir'] = $newDir;
+    $arrow = '';
+    if ($sort === $column) {
+        $arrow = $dir === 'asc' ? ' ▲' : ' ▼';
+    }
+    return '<a href="studentgrades.php?' . http_build_query($params) . '" style="color: inherit; text-decoration: none;">' . htmlspecialchars($label . $arrow) . '</a>';
+}
+
 // Ensure the Section table can link to Faculty, and assign unassigned sections to this faculty for testing
 $faculty_id = null;
 if ($_SESSION['role'] === 'faculty') {
@@ -43,6 +71,8 @@ if ($_SESSION['role'] === 'faculty' && $faculty_id) {
     $query .= " WHERE sec.faculty_id = :fid";
     $params[':fid'] = $faculty_id;
 }
+
+$query .= " ORDER BY " . $allowedSorts[$sort] . " " . $dir;
 
 $stmt = $pdo->prepare($query);
 $stmt->execute($params);
@@ -88,25 +118,36 @@ $grades = $stmt->fetchAll();
                     <h1 class="page-title">My Class Grades</h1>
                 </div>
                 
-                <div class="action-buttons">
-                    <button class="btn-solid" onclick="window.location.reload();">Refresh List</button>
-                </div>
+                <form class="action-buttons" method="GET" style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                    <button type="submit" class="btn-solid">Apply Sort</button>
+                    <select name="sort" class="btn-solid" style="background-color: #fff; color: var(--primary-accent) !important; border: 2px solid var(--primary-accent); cursor: pointer;">
+                        <option value="student_id" <?php if($sort == 'student_id') echo 'selected'; ?>>Sort by ID</option>
+                        <option value="name" <?php if($sort == 'name') echo 'selected'; ?>>Sort by Name</option>
+                        <option value="section" <?php if($sort == 'section') echo 'selected'; ?>>Sort by Section</option>
+                        <option value="status" <?php if($sort == 'status') echo 'selected'; ?>>Sort by Status</option>
+                    </select>
+                    <select name="dir" class="btn-solid" style="background-color: #fff; color: var(--primary-accent) !important; border: 2px solid var(--primary-accent); cursor: pointer;">
+                        <option value="asc" <?php if($dir == 'asc') echo 'selected'; ?>>Ascending</option>
+                        <option value="desc" <?php if($dir == 'desc') echo 'selected'; ?>>Descending</option>
+                    </select>
+                    <button type="button" class="btn-solid" onclick="window.location.reload();">Refresh List</button>
+                </form>
             </div>
 
             <div class="table-wrapper">
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th rowspan="2">Student ID</th>
-                            <th rowspan="2">Student Name</th>
-                            <th rowspan="2">Course / Section</th>
+                            <th rowspan="2"><?php echo sortLink('student_id', 'Student ID'); ?></th>
+                            <th rowspan="2"><?php echo sortLink('name', 'Student Name'); ?></th>
+                            <th rowspan="2"><?php echo sortLink('section', 'Course / Section'); ?></th>
                             <th colspan="3" class="text-center">Grades</th>
                             <th rowspan="2" class="icon-header"></th>
                         </tr>
                         <tr>
                             <th class="sub-header">Midterm</th>
                             <th class="sub-header">Final</th>
-                            <th class="sub-header">Status</th>
+                            <th class="sub-header"><?php echo sortLink('status', 'Status'); ?></th>
                         </tr>
                     </thead>
                     <tbody>

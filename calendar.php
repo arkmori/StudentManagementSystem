@@ -190,6 +190,36 @@ $events = $eventsStmt->fetchAll(PDO::FETCH_ASSOC);
             color: white;
             border: 2px solid #4caf50;
         }
+        .task-display {
+            font-size: 0.7rem;
+            padding: 2px 4px;
+            background-color: rgba(0, 0, 0, 0.1);
+            border-radius: 3px;
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            word-break: break-word;
+            max-height: 35px;
+            line-height: 1.2;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+        .cal-cell.has-task .task-display,
+        .cal-cell.has-event .task-display,
+        .cal-cell.highlighted .task-display {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white !important;
+        }
+        .cal-cell {
+            display: flex;
+            flex-direction: column;
+        }
+        .cal-day-number {
+            flex: 0 0 auto;
+        }
         .reminder-item {
             display: flex;
             justify-content: space-between;
@@ -431,17 +461,35 @@ $events = $eventsStmt->fetchAll(PDO::FETCH_ASSOC);
                 for (let i = 1; i <= daysInMonth; i++) {
                     const dayCell = document.createElement('div');
                     dayCell.className = 'cal-cell';
-                    dayCell.textContent = i;
+                    
+                    // Create a container for day number
+                    const dayNumberSpan = document.createElement('span');
+                    dayNumberSpan.className = 'cal-day-number';
+                    dayNumberSpan.textContent = i;
+                    dayCell.appendChild(dayNumberSpan);
                     
                     // Check if there's a task on this date
                     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-                    const hasTask = tasks.some(task => task.task_date === dateStr);
+                    const tasksForDate = tasks.filter(task => task.task_date === dateStr);
                     const isHighlighted = highlightedDates.includes(dateStr);
-                    const hasEvent = events.some(event => event.event_date === dateStr);
-                    if (hasTask) {
+                    const eventsForDate = events.filter(event => event.event_date === dateStr);
+                    
+                    if (tasksForDate.length > 0) {
                         dayCell.classList.add('has-task');
-                    } else if (hasEvent) {
+                        // Display first task (truncated to 20 characters)
+                        const taskDisplay = document.createElement('div');
+                        taskDisplay.className = 'task-display';
+                        taskDisplay.title = tasksForDate[0].task_description; // Full text on hover
+                        taskDisplay.textContent = tasksForDate[0].task_description.substring(0, 25) + (tasksForDate[0].task_description.length > 25 ? '...' : '');
+                        dayCell.appendChild(taskDisplay);
+                    } else if (eventsForDate.length > 0) {
                         dayCell.classList.add('has-event');
+                        // Display first event (truncated)
+                        const eventDisplay = document.createElement('div');
+                        eventDisplay.className = 'task-display';
+                        eventDisplay.title = eventsForDate[0].event_description; // Full text on hover
+                        eventDisplay.textContent = eventsForDate[0].event_description.substring(0, 25) + (eventsForDate[0].event_description.length > 25 ? '...' : '');
+                        dayCell.appendChild(eventDisplay);
                     } else if (isHighlighted) {
                         dayCell.classList.add('highlighted');
                     }

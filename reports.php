@@ -77,8 +77,8 @@ try {
                     <div class="stat-text-box">Sections</div>
                 </div>
                 <div class="stat-row">
-                    <div class="stat-num-box"><?php echo htmlspecialchars($totalCourses); ?></div>
-                    <div class="stat-text-box">Courses</div>
+                    <div class="stat-num-box"><?php echo htmlspecialchars($studentsCleared); ?></div>
+                    <div class="stat-text-box">Cleared</div>
                 </div>
             </div>
 

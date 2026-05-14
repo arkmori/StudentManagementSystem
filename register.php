@@ -130,7 +130,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         <select id="role" name="role" required style="width: 100%; padding: 12px 20px; border: 3px solid #BC5F04; border-radius: 30px; font-size: 1rem; color: #BC5F04; background-color: #FFFFFF; outline: none; box-sizing: border-box; cursor: pointer;">
                             <option value="" disabled selected>Select Role</option>
                             <option value="faculty">Faculty</option>
-                            <option value="admin">Admin</option>
                             <option value="student">Student</option>
                         </select>
                     </div>
