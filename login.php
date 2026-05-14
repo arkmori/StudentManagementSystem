@@ -15,6 +15,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     $username = $_POST['username'] ?? '';
     $password = $_POST['password'] ?? '';
+    $remember_me = isset($_POST['remember_me']) ? true : false;
 
     if (!empty($username) && !empty($password)) {
         $stmt = $pdo->prepare("
@@ -30,6 +31,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if ($user && ($password === $user['password'] || password_verify($password, $user['password']))) {
             $_SESSION['user_id'] = $user['user_id'];
             $_SESSION['role'] = strtolower($user['role_name']);
+            
+            // Set "Remember Me" cookies if checkbox is checked
+            if ($remember_me) {
+                $token = hash('sha256', $user['user_name'] . $user['user_id']);
+                setcookie('remember_user_id', $user['user_id'], time() + (30 * 24 * 60 * 60), '/', '', false, true); // 30 days
+                setcookie('remember_token', $token, time() + (30 * 24 * 60 * 60), '/', '', false, true); // 30 days
+            }
             
             header("Location: dashboard.php");
             exit();
@@ -91,6 +99,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 20px;">
                     <input type="checkbox" id="show-password" onclick="togglePassword()" style="width: auto; margin: 0; cursor: pointer;">
                     <label for="show-password" style="margin: 0; font-size: 0.9rem; cursor: pointer; color: inherit;">Show Password</label>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 20px;">
+                    <input type="checkbox" id="remember_me" name="remember_me" style="width: auto; margin: 0; cursor: pointer;">
+                    <label for="remember_me" style="margin: 0; font-size: 0.9rem; cursor: pointer; color: inherit;">Remember Me</label>
                 </div>
                 
                 <button type="submit" class="btn btn-primary">Log In</button>
