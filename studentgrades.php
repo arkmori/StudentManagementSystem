@@ -101,9 +101,7 @@ $grades = $stmt->fetchAll();
                             <th rowspan="2">Student Name</th>
                             <th rowspan="2">Course / Section</th>
                             <th colspan="3" class="text-center">Grades</th>
-                            <th rowspan="2" class="icon-col">
-                                <svg class="edit-icon" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-                            </th>
+                            <th rowspan="2" class="icon-header"></th>
                         </tr>
                         <tr>
                             <th class="sub-header">Midterm</th>

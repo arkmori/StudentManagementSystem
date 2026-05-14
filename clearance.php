@@ -9,6 +9,7 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {
 require_once 'connection.php';
 
 $search = $_GET['search'] ?? '';
+$status = $_GET['status'] ?? '';
 
 $query = "
     SELECT s.student_id, l.first_name, l.last_name, c.college_name, cl.status
@@ -23,6 +24,14 @@ $params = [];
 if (!empty($search)) {
     $query .= " AND (s.student_id LIKE :search OR l.first_name LIKE :search OR l.last_name LIKE :search)";
     $params[':search'] = "%$search%";
+}
+
+if (!empty($status)) {
+    if ($status == 'Cleared') {
+        $query .= " AND cl.status = 'Cleared'";
+    } elseif ($status == 'Not Cleared') {
+        $query .= " AND (cl.status IS NULL OR cl.status != 'Cleared')";
+    }
 }
 
 $stmt = $pdo->prepare($query);
@@ -70,14 +79,21 @@ $clearances = $stmt->fetchAll();
                 </div>
                 
                 <div class="action-buttons">
-                    <button class="btn-solid" onclick="window.location.href='clearance.php'">Clear Filter</button>
+                    <form method="GET" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <select name="status" class="btn-solid" style="background-color: #fff; color: var(--primary-accent) !important; border: 2px solid var(--primary-accent); cursor: pointer;">
+                            <option value="">All Status</option>
+                            <option value="Cleared" <?php if($status == 'Cleared') echo 'selected'; ?>>Cleared</option>
+                            <option value="Not Cleared" <?php if($status == 'Not Cleared') echo 'selected'; ?>>Not Cleared</option>
+                        </select>
+                        <input type="text" name="search" value="<?php echo htmlspecialchars($search); ?>" placeholder="Search ID or Name" style="padding: 8px 12px; border: 2px solid var(--primary-accent); border-radius: 20px; outline: none; color: var(--primary-accent);">
+                        <button type="submit" class="btn-solid">Filter</button>
+                        <button type="button" class="btn-solid" onclick="window.location.href='clearance.php'">Clear Filter</button>
+                    </form>
                 </div>
             </div>
 
-            <div class="clearance-content-grid">
-                
-                <div class="table-wrapper">
-                    <table class="data-table">
+            <div class="table-wrapper">
+                <table class="data-table">
                         <thead>
                             <tr>
                                 <th>Student ID</th>
@@ -113,16 +129,6 @@ $clearances = $stmt->fetchAll();
                             <?php endif; ?>
                         </tbody>
                     </table>
-                </div>
-
-                <div class="card clearance-sidebar">
-                    <form method="GET" class="search-input-wrapper">
-                        <input type="text" name="search" class="search-input" placeholder="Student ID or Name" value="<?php echo htmlspecialchars($search); ?>">
-                        <button type="submit" style="background: none; border: none; padding: 0; margin: 0; cursor: pointer;">
-                            <svg class="search-icon" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-                        </button>
-                    </form>
-                </div>
 
             </div>
         </div>
