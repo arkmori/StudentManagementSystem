@@ -41,6 +41,17 @@ if ($_SESSION['role'] !== 'faculty' || !$faculty_id) {
     $facultyCourses = $pdo->query("SELECT course_name FROM `Course` ORDER BY course_name ASC")->fetchAll(PDO::FETCH_COLUMN);
 }
 
+// Filter unique section names for the dropdown so the faculty doesn't see duplicates
+$uniqueSections = [];
+$seenSectionNames = [];
+foreach ($sections as $sec) {
+    $sName = $sec['section_name'] ?? 'Section';
+    if (!in_array($sName, $seenSectionNames)) {
+        $seenSectionNames[] = $sName;
+        $uniqueSections[] = $sec;
+    }
+}
+
 function getSectionId(PDO $pdo, string $name) {
     $course = null;
     $section = trim($name);
@@ -90,8 +101,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $studentId = $_POST['studentId'] ?? '';
     $collegeName = $_POST['college'] ?? '';
     $yearLevel = $_POST['yearLevel'] ?? 1;
-    $courseSelection = $_POST['course_id'] ?? '';
-    $newCourseName = trim($_POST['new_course_name'] ?? '');
 
     try {
         $pdo->beginTransaction();
@@ -160,19 +169,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $college_id = $colRow ? $colRow['college_id'] : NULL;
         }
 
-        $courseName = null;
-        if ($courseSelection === '__add_new_course__' && $newCourseName !== '') {
-            $stmtCourseCheck = $pdo->prepare("SELECT course_id FROM `Course` WHERE course_name = :c");
-            $stmtCourseCheck->execute([':c' => $newCourseName]);
-            if (!$stmtCourseCheck->fetch()) {
-                $stmtInsertCourse = $pdo->prepare("INSERT INTO `Course` (course_name) VALUES (:c)");
-                $stmtInsertCourse->execute([':c' => $newCourseName]);
-            }
-            $courseName = $newCourseName;
-        } elseif ($courseSelection !== '' && $courseSelection !== '__add_new_course__') {
-            $courseName = $courseSelection;
-        }
-
         $stmtStudent = $pdo->prepare("INSERT INTO `Student` (user_id, year_level, college_id) VALUES (:uid, :ylvl, :cid)");
         $stmtStudent->execute([
             ':uid' => $new_user_id,
@@ -181,48 +177,76 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         ]);
         $new_student_id = $pdo->lastInsertId();
 
-        $sectionIds = [];
-        if (!empty($_POST['section_ids'])) {
-            $selected = $_POST['section_ids'];
-            if (!is_array($selected)) {
-                $selected = [$selected];
+        // Gather all selected courses
+        $selectedCourses = [];
+        $primaryCourse = $_POST['course_id'] ?? '';
+        $newCourseName = trim($_POST['new_course_name'] ?? '');
+
+        // Handle Primary Course (and possible new course creation)
+        if ($primaryCourse === '__add_new_course__' && $newCourseName !== '') {
+            $stmtCourseCheck = $pdo->prepare("SELECT course_id FROM `Course` WHERE course_name = :c");
+            $stmtCourseCheck->execute([':c' => $newCourseName]);
+            if (!$stmtCourseCheck->fetch()) {
+                $stmtInsertCourse = $pdo->prepare("INSERT INTO `Course` (course_name) VALUES (:c)");
+                $stmtInsertCourse->execute([':c' => $newCourseName]);
             }
-            foreach ($selected as $sid) {
-                if ($sid === '__add_new_section__') {
-                    continue;
-                }
-                $sid = intval($sid);
-                if ($sid > 0) {
-                    $sectionIds[] = $sid;
+            $selectedCourses[] = $newCourseName;
+        } elseif ($primaryCourse !== '' && $primaryCourse !== '__add_new_course__') {
+            $selectedCourses[] = $primaryCourse;
+        }
+
+        // Handle Additional Courses
+        if (!empty($_POST['course_ids'])) {
+            foreach ($_POST['course_ids'] as $c) {
+                if ($c === '__add_new_course__' && $newCourseName !== '') {
+                    if (!in_array($newCourseName, $selectedCourses)) {
+                        $selectedCourses[] = $newCourseName;
+                    }
+                } elseif (trim($c) !== '' && $c !== '__add_new_course__') {
+                    if (!in_array($c, $selectedCourses)) {
+                        $selectedCourses[] = $c;
+                    }
                 }
             }
         }
 
-        if (!empty($newCourseName) && $courseSelection === '__add_new_course__') {
-            // Ensure the new course is visible for current session
-            if (!in_array($newCourseName, $facultyCourses, true)) {
-                $facultyCourses[] = $newCourseName;
-            }
-        }
-
+        // Figure out the actual Section Name
+        $baseSectionName = '';
+        $selectedSectionId = $_POST['section_id'] ?? '';
         $newSectionName = trim($_POST['new_section_name'] ?? '');
-        if (!empty($newSectionName)) {
-            $sectionIds[] = getSectionIdForCourse($pdo, $courseName, $newSectionName);
+
+        if ($selectedSectionId === '__add_new_section__' && $newSectionName !== '') {
+            $baseSectionName = $newSectionName;
+        } elseif ($selectedSectionId !== '' && $selectedSectionId !== '__add_new_section__') {
+            $stmtSec = $pdo->prepare("SELECT section_name FROM `Section` WHERE section_id = ?");
+            $stmtSec->execute([$selectedSectionId]);
+            $secRow = $stmtSec->fetch();
+            if ($secRow) {
+                $baseSectionName = $secRow['section_name'];
+            }
         }
 
-        $sectionIds = array_unique(array_filter($sectionIds, function($id) {
-            return $id > 0;
-        }));
+        // Loop through courses and pair them with the base section name
+        $finalSectionIdsToEnroll = [];
+        if (!empty($baseSectionName) && !empty($selectedCourses)) {
+            foreach ($selectedCourses as $cName) {
+                $finalSectionIdsToEnroll[] = getSectionIdForCourse($pdo, $cName, $baseSectionName);
+            }
+        }
 
-        if (!empty($sectionIds)) {
+        $finalSectionIdsToEnroll = array_unique($finalSectionIdsToEnroll);
+
+        // Enroll the student in those generated section IDs
+        if (!empty($finalSectionIdsToEnroll)) {
             $stmtEnroll = $pdo->prepare("INSERT INTO `Enrollment` (student_id, section_id, enrollment_date, status) VALUES (:sid, :secid, CURDATE(), 'Active')");
             $stmtCheckEnroll = $pdo->prepare("SELECT COUNT(*) FROM `Enrollment` WHERE student_id = :sid AND section_id = :secid");
-            foreach ($sectionIds as $section_id) {
-                $stmtCheckEnroll->execute([':sid' => $new_student_id, ':secid' => $section_id]);
+            
+            foreach ($finalSectionIdsToEnroll as $sec_id) {
+                $stmtCheckEnroll->execute([':sid' => $new_student_id, ':secid' => $sec_id]);
                 if ($stmtCheckEnroll->fetchColumn() == 0) {
                     $stmtEnroll->execute([
                         ':sid' => $new_student_id,
-                        ':secid' => $section_id
+                        ':secid' => $sec_id
                     ]);
                 }
             }
@@ -323,24 +347,45 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <div class="admissions-grid">
                     <div class="inline-form-group">
                         <label for="studentId">Student ID (optional):</label>
-                        <input type="text" id="studentId" name="studentId" placeholder="Enter existing Student ID if already assigned">
+                        <input type="text" id="studentId" name="studentId" placeholder="Enter existing Student ID if already assigned" style="flex-grow: 1;">
                     </div>
+                    
                     <div class="inline-form-group">
                         <label for="college">College:</label>
-                        <select id="college" name="college" style="flex-grow: 1; padding: 8px 12px; border: 2px solid var(--primary-accent); border-radius: 4px; font-size: 1rem; color: var(--primary-accent); background-color: var(--white); transition: box-shadow 0.2s, border-color 0.2s; outline: none;">
+                        <select id="college" name="college" style="flex-grow: 1; padding: 8px 12px; border: 2px solid var(--primary-accent); border-radius: 4px; font-size: 1rem; color: var(--primary-accent); background-color: var(--white); outline: none;">
                             <option value="">Select College</option>
                             <?php foreach ($collegeOptions as $collegeOption): ?>
                                 <option value="<?php echo htmlspecialchars($collegeOption); ?>"><?php echo htmlspecialchars($collegeOption); ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
+                    
                     <div class="inline-form-group">
                         <label for="yearLevel">Year Level:</label>
-                        <input type="number" id="yearLevel" name="yearLevel" value="1">
+                        <input type="number" id="yearLevel" name="yearLevel" value="1" style="flex-grow: 1;">
                     </div>
+
+                    <div class="inline-form-group">
+                        <label for="section_id">Section:</label>
+                        <select id="section_id" name="section_id" required style="flex-grow: 1; padding: 8px 12px; border: 2px solid var(--primary-accent); border-radius: 4px; font-size: 1rem; color: var(--primary-accent); background-color: var(--white); outline: none;">
+                            <option value="">Select a section</option>
+                            <?php foreach ($uniqueSections as $sec): ?>
+                                <option value="<?php echo $sec['section_id']; ?>">
+                                    <?php echo htmlspecialchars($sec['section_name'] ?? 'Section', ENT_QUOTES); ?>
+                                </option>
+                            <?php endforeach; ?>
+                            <option value="__add_new_section__">Add New Section...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="inline-form-group" id="new-section-container" style="display: none;">
+                        <label for="new_section_name">New Section Name:</label>
+                        <input type="text" id="new_section_name" name="new_section_name" placeholder="Enter new section name" style="flex-grow: 1;">
+                    </div>
+
                     <div class="inline-form-group">
                         <label for="course_id">Enroll Course:</label>
-                        <select id="course_id" name="course_id" style="flex-grow: 1; padding: 8px 12px; border: 2px solid var(--primary-accent); border-radius: 4px; font-size: 1rem; color: var(--primary-accent); background-color: var(--white); transition: box-shadow 0.2s, border-color 0.2s; outline: none;">
+                        <select id="course_id" name="course_id" style="flex-grow: 1; padding: 8px 12px; border: 2px solid var(--primary-accent); border-radius: 4px; font-size: 1rem; color: var(--primary-accent); background-color: var(--white); outline: none;">
                             <option value="">Select a course</option>
                             <?php foreach ($facultyCourses as $courseName): ?>
                                 <option value="<?php echo htmlspecialchars($courseName); ?>"><?php echo htmlspecialchars($courseName); ?></option>
@@ -348,24 +393,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <option value="__add_new_course__">Add New Course...</option>
                         </select>
                     </div>
-                    <div class="inline-form-group" id="new-course-container">
-                        <label for="new_course_name">New Course Name</label>
-                        <input type="text" id="new_course_name" name="new_course_name" placeholder="Enter new course name">
+
+                    <div class="inline-form-group" id="new-course-container" style="display: none;">
+                        <label for="new_course_name">New Course Name:</label>
+                        <input type="text" id="new_course_name" name="new_course_name" placeholder="Enter new course name" style="flex-grow: 1;">
                     </div>
-                    <div class="inline-form-group section-group">
-                        <label for="course_id">Additional Courses:</label>
-                        <div class="course-content">
-                            <div id="course-rows" class="course-rows">
-                                <div class="course-row">
-                                    <select name="course_ids[]" class="course-select">
-                                        <option value="">Select a course</option>
-                                        <?php foreach ($facultyCourses as $courseName): ?>
-                                            <option value="<?php echo htmlspecialchars($courseName); ?>"><?php echo htmlspecialchars($courseName); ?></option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </div>
+
+                    <div class="inline-form-group course-group">
+                        <label>Additional Courses:</label>
+                        <div class="course-content" style="flex-grow: 1;">
+                            <div id="course-rows" class="course-rows" style="display: flex; flex-direction: column; gap: 10px;">
                             </div>
-                            <div class="course-actions">
+                            <div class="course-actions" style="margin-top: 10px;">
                                 <button type="button" id="add-course-button" class="btn-solid course-add-button">Add Another Course</button>
                             </div>
                         </div>
@@ -375,7 +414,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <div class="form-submit-container">
                     <button type="submit" class="btn-solid btn-large">Enroll Student</button>
                 </div>
-
             </form>
         </div>
     </main>
@@ -384,27 +422,51 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Logic for the New Section Input toggle
+            const sectionSelect = document.getElementById('section_id');
+            const newSectionContainer = document.getElementById('new-section-container');
+
+            sectionSelect.addEventListener('change', function() {
+                newSectionContainer.style.display = this.value === '__add_new_section__' ? 'flex' : 'none';
+            });
+
+            // Logic for the New Course Input toggle (Primary and Additional combined)
             const courseSelect = document.getElementById('course_id');
             const newCourseContainer = document.getElementById('new-course-container');
-            const sectionRows = document.getElementById('section-rows');
-            const addSectionButton = document.getElementById('add-section-button');
-            const newSectionContainer = document.getElementById('new-section-container');
-            const newSectionName = document.getElementById('new_section_name');
+            const courseRows = document.getElementById('course-rows');
+            const addCourseButton = document.getElementById('add-course-button');
 
-            const sectionOptions = [
-                { value: '', label: 'Select a section' },
-                <?php foreach ($sections as $sec): ?>
-                    { value: '<?php echo $sec['section_id']; ?>', label: '<?php echo htmlspecialchars(($sec['course_name'] ?? 'Course') . ' - ' . ($sec['section_name'] ?? 'Section'), ENT_QUOTES); ?>' },
+            const courseOptions = [
+                { value: '', label: 'Select a course' },
+                <?php foreach ($facultyCourses as $courseName): ?>
+                    { value: '<?php echo htmlspecialchars($courseName, ENT_QUOTES); ?>', label: '<?php echo htmlspecialchars($courseName, ENT_QUOTES); ?>' },
                 <?php endforeach; ?>
-                { value: '__add_new_section__', label: 'Add New Section...' }
+                { value: '__add_new_course__', label: 'Add New Course...' }
             ];
 
-            function createSectionSelect(value = '') {
+            function checkNewCourseVisibility() {
+                let showNewCourse = courseSelect.value === '__add_new_course__';
+                if (!showNewCourse) {
+                    const additionalSelects = courseRows.querySelectorAll('select');
+                    additionalSelects.forEach(select => {
+                        if (select.value === '__add_new_course__') {
+                            showNewCourse = true;
+                        }
+                    });
+                }
+                newCourseContainer.style.display = showNewCourse ? 'flex' : 'none';
+            }
+
+            courseSelect.addEventListener('change', checkNewCourseVisibility);
+
+            function createCourseSelect() {
                 const wrapper = document.createElement('div');
-                wrapper.className = 'section-row';
+                wrapper.className = 'course-row';
+                wrapper.style.display = 'flex';
+                wrapper.style.gap = '10px';
 
                 const select = document.createElement('select');
-                select.name = 'section_ids[]';
+                select.name = 'course_ids[]'; 
                 select.style.flexGrow = '1';
                 select.style.padding = '8px 12px';
                 select.style.border = '2px solid var(--primary-accent)';
@@ -414,73 +476,34 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 select.style.backgroundColor = 'var(--white)';
                 select.style.outline = 'none';
 
-                sectionOptions.forEach(opt => {
+                courseOptions.forEach(opt => {
                     const option = document.createElement('option');
                     option.value = opt.value;
                     option.textContent = opt.label;
-                    if (opt.value === value) option.selected = true;
                     select.appendChild(option);
                 });
 
-                select.addEventListener('change', function() {
-                    updateNewSectionVisibility();
-                    updateSectionControls();
+                select.addEventListener('change', checkNewCourseVisibility);
+
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.textContent = 'Remove';
+                removeBtn.className = 'btn-solid';
+                removeBtn.style.padding = '8px 16px';
+                removeBtn.addEventListener('click', () => {
+                    wrapper.remove();
+                    checkNewCourseVisibility();
                 });
 
                 wrapper.appendChild(select);
-
-                if (sectionRows.children.length > 0) {
-                    const removeBtn = document.createElement('button');
-                    removeBtn.type = 'button';
-                    removeBtn.textContent = 'Remove';
-                    removeBtn.className = 'btn-solid';
-                    removeBtn.style.padding = '10px 18px';
-                    removeBtn.addEventListener('click', () => {
-                        wrapper.remove();
-                        updateSectionControls();
-                    });
-                    wrapper.appendChild(removeBtn);
-                }
+                wrapper.appendChild(removeBtn);
 
                 return wrapper;
             }
 
-            function updateNewCourseVisibility() {
-                if (!courseSelect || !newCourseContainer) return;
-                newCourseContainer.style.display = courseSelect.value === '__add_new_course__' ? 'block' : 'none';
-            }
-
-            function updateNewSectionVisibility() {
-                const hasNewSection = Array.from(sectionRows.querySelectorAll('select')).some(select => select.value === '__add_new_section__');
-                newSectionContainer.style.display = hasNewSection ? 'block' : 'none';
-                if (!hasNewSection) {
-                    newSectionName.value = '';
-                }
-            }
-
-            function updateSectionControls() {
-                const selectedAny = Array.from(sectionRows.querySelectorAll('select')).some(select => select.value !== '');
-                if (addSectionButton) {
-                    addSectionButton.style.display = selectedAny ? 'inline-flex' : 'none';
-                }
-            }
-
-            addSectionButton?.addEventListener('click', function() {
-                sectionRows.appendChild(createSectionSelect());
-                updateSectionControls();
+            addCourseButton?.addEventListener('click', function() {
+                courseRows.appendChild(createCourseSelect());
             });
-
-            sectionRows.querySelectorAll('select').forEach(select => {
-                select.addEventListener('change', function() {
-                    updateNewSectionVisibility();
-                    updateSectionControls();
-                });
-            });
-
-            courseSelect?.addEventListener('change', updateNewCourseVisibility);
-            updateNewCourseVisibility();
-            updateNewSectionVisibility();
-            updateSectionControls();
         });
     </script>
 </body>

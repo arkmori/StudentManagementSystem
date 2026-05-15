@@ -9,13 +9,97 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {
 require_once 'connection.php';
 
 try {
-    $totalStudents = $pdo->query("SELECT COUNT(*) FROM `Student`")->fetchColumn();
-    $passedStudents = $pdo->query("SELECT COUNT(DISTINCT enrollment_id) FROM `Grades` WHERE status = 'Passed'")->fetchColumn();
-    $totalSections = $pdo->query("SELECT COUNT(*) FROM `Section`")->fetchColumn();
-    $totalCourses = $pdo->query("SELECT COUNT(*) FROM `Course`")->fetchColumn();
-    $studentsGraded = $pdo->query("SELECT COUNT(DISTINCT enrollment_id) FROM `Grades`")->fetchColumn();
-    $studentsCleared = $pdo->query("SELECT COUNT(DISTINCT student_id) FROM `Clearance` WHERE status = 'Cleared'")->fetchColumn();
-    $studentConcerns = $pdo->query("SELECT COUNT(*) FROM `Feedback`")->fetchColumn();
+    if ($_SESSION['role'] === 'faculty') {
+        // Retrieve the specific faculty ID for the logged-in user
+        $stmtFac = $pdo->prepare("SELECT faculty_id FROM `Faculty` WHERE user_id = ?");
+        $stmtFac->execute([$_SESSION['user_id']]);
+        $faculty_id = $stmtFac->fetchColumn();
+
+        if ($faculty_id) {
+            // Count unique students enrolled in any section taught by this faculty
+            $stmtTotalStudents = $pdo->prepare("
+                SELECT COUNT(DISTINCT student_id) 
+                FROM `Enrollment` 
+                WHERE section_id IN (SELECT section_id FROM `Section` WHERE faculty_id = ?)
+            ");
+            $stmtTotalStudents->execute([$faculty_id]);
+            $totalStudents = $stmtTotalStudents->fetchColumn();
+
+            // Count unique passed students in this faculty's sections
+            $stmtPassed = $pdo->prepare("
+                SELECT COUNT(DISTINCT enrollment_id) 
+                FROM `Grades` 
+                WHERE status = 'Passed' AND enrollment_id IN (
+                    SELECT enrollment_id FROM `Enrollment` WHERE section_id IN (
+                        SELECT section_id FROM `Section` WHERE faculty_id = ?
+                    )
+                )
+            ");
+            $stmtPassed->execute([$faculty_id]);
+            $passedStudents = $stmtPassed->fetchColumn();
+
+            // Count sections assigned to this faculty
+            $stmtSections = $pdo->prepare("SELECT COUNT(*) FROM `Section` WHERE faculty_id = ?");
+            $stmtSections->execute([$faculty_id]);
+            $totalSections = $stmtSections->fetchColumn();
+
+            // Count unique courses taught by this faculty
+            $stmtCourses = $pdo->prepare("SELECT COUNT(DISTINCT course_name) FROM `Section` WHERE faculty_id = ?");
+            $stmtCourses->execute([$faculty_id]);
+            $totalCourses = $stmtCourses->fetchColumn();
+
+            // Count unique graded enrollments in this faculty's sections
+            $stmtGraded = $pdo->prepare("
+                SELECT COUNT(DISTINCT enrollment_id) 
+                FROM `Grades` 
+                WHERE enrollment_id IN (
+                    SELECT enrollment_id FROM `Enrollment` WHERE section_id IN (
+                        SELECT section_id FROM `Section` WHERE faculty_id = ?
+                    )
+                )
+            ");
+            $stmtGraded->execute([$faculty_id]);
+            $studentsGraded = $stmtGraded->fetchColumn();
+
+            // Count unique cleared students among those taught by this faculty
+            $stmtCleared = $pdo->prepare("
+                SELECT COUNT(DISTINCT student_id) 
+                FROM `Clearance` 
+                WHERE status = 'Cleared' AND student_id IN (
+                    SELECT student_id FROM `Enrollment` WHERE section_id IN (
+                        SELECT section_id FROM `Section` WHERE faculty_id = ?
+                    )
+                )
+            ");
+            $stmtCleared->execute([$faculty_id]);
+            $studentsCleared = $stmtCleared->fetchColumn();
+
+            // Count feedback/concerns from students taught by this faculty
+            $stmtConcerns = $pdo->prepare("
+                SELECT COUNT(*) 
+                FROM `Feedback` 
+                WHERE student_id IN (
+                    SELECT student_id FROM `Enrollment` WHERE section_id IN (
+                        SELECT section_id FROM `Section` WHERE faculty_id = ?
+                    )
+                )
+            ");
+            $stmtConcerns->execute([$faculty_id]);
+            $studentConcerns = $stmtConcerns->fetchColumn();
+        } else {
+            // Fallback to zeros if a faculty record somehow doesn't exist for this user
+            $totalStudents = $passedStudents = $totalSections = $totalCourses = $studentsGraded = $studentsCleared = $studentConcerns = 0;
+        }
+    } else {
+        // Non-faculty roles (e.g., admin) see global analytics
+        $totalStudents = $pdo->query("SELECT COUNT(*) FROM `Student`")->fetchColumn();
+        $passedStudents = $pdo->query("SELECT COUNT(DISTINCT enrollment_id) FROM `Grades` WHERE status = 'Passed'")->fetchColumn();
+        $totalSections = $pdo->query("SELECT COUNT(*) FROM `Section`")->fetchColumn();
+        $totalCourses = $pdo->query("SELECT COUNT(*) FROM `Course`")->fetchColumn();
+        $studentsGraded = $pdo->query("SELECT COUNT(DISTINCT enrollment_id) FROM `Grades`")->fetchColumn();
+        $studentsCleared = $pdo->query("SELECT COUNT(DISTINCT student_id) FROM `Clearance` WHERE status = 'Cleared'")->fetchColumn();
+        $studentConcerns = $pdo->query("SELECT COUNT(*) FROM `Feedback`")->fetchColumn();
+    }
 } catch (PDOException $e) {
     $totalStudents = $passedStudents = $totalSections = $totalCourses = $studentsGraded = $studentsCleared = $studentConcerns = 0;
 }

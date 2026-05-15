@@ -76,7 +76,6 @@ $history = $stmt->fetchAll();
                 <form method="GET" class="action-buttons" style="display: flex; gap: 10px;">
                     <input type="text" name="search" value="<?php echo htmlspecialchars($search); ?>" placeholder="Search ID or Name" style="padding: 8px 12px; border: 2px solid var(--primary-accent); border-radius: 20px; outline: none; color: var(--primary-accent);">
                     <button type="submit" class="btn-solid">Search Student</button>
-                    <button type="button" class="btn-solid" onclick="window.location.href='enrollmenthistory.php'">Clear Filter</button>
                 </form>
             </div>
 

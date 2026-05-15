@@ -21,6 +21,25 @@ $query = "
 ";
 $params = [];
 
+// Check if the logged-in user is a faculty member and restrict the query
+if ($_SESSION['role'] === 'faculty') {
+    $stmtFac = $pdo->prepare("SELECT faculty_id FROM `Faculty` WHERE user_id = ?");
+    $stmtFac->execute([$_SESSION['user_id']]);
+    $faculty_id = $stmtFac->fetchColumn();
+
+    if ($faculty_id) {
+        $query .= " AND EXISTS (
+            SELECT 1 FROM `Enrollment` e
+            JOIN `Section` sec ON e.section_id = sec.section_id
+            WHERE e.student_id = s.student_id AND sec.faculty_id = :faculty_id
+        )";
+        $params[':faculty_id'] = $faculty_id;
+    } else {
+        // Failsafe: if they are marked as faculty but have no faculty_id, show no students
+        $query .= " AND 1=0"; 
+    }
+}
+
 if (!empty($search)) {
     $query .= " AND (s.student_id LIKE :search OR l.first_name LIKE :search OR l.last_name LIKE :search)";
     $params[':search'] = "%$search%";

@@ -16,6 +16,7 @@ $coursesTaught = 0;
 $failingStudents = 0;
 
 try {
+    // 1. Get the user's name for the welcome banner
     $stmt = $pdo->prepare("SELECT first_name, last_name FROM `Login` WHERE user_id = :user_id");
     $stmt->bindParam(':user_id', $user_id);
     $stmt->execute();
@@ -25,9 +26,49 @@ try {
         $display_name = trim($user['first_name'] . ' ' . $user['last_name']);
     }
 
-    $enrolledStudents = $pdo->query("SELECT COUNT(DISTINCT student_id) FROM `Enrollment`")->fetchColumn();
-    $coursesTaught = $pdo->query("SELECT COUNT(*) FROM `Course`")->fetchColumn();
-    $failingStudents = $pdo->query("SELECT COUNT(DISTINCT enrollment_id) FROM `Grades` WHERE status = 'Failed'")->fetchColumn();
+    // 2. Calculate the dashboard stats based on user role
+    if ($_SESSION['role'] === 'faculty') {
+        $stmtFac = $pdo->prepare("SELECT faculty_id FROM `Faculty` WHERE user_id = ?");
+        $stmtFac->execute([$user_id]);
+        $faculty_id = $stmtFac->fetchColumn();
+
+        if ($faculty_id) {
+            // Count unique students enrolled in this faculty's sections
+            $stmtCount = $pdo->prepare("
+                SELECT COUNT(DISTINCT e.student_id) 
+                FROM `Enrollment` e
+                JOIN `Section` sec ON e.section_id = sec.section_id
+                WHERE sec.faculty_id = ?
+            ");
+            $stmtCount->execute([$faculty_id]);
+            $enrolledStudents = $stmtCount->fetchColumn();
+
+            // Count unique courses this faculty is assigned to teach
+            $stmtCourses = $pdo->prepare("
+                SELECT COUNT(DISTINCT course_name) 
+                FROM `Section` 
+                WHERE faculty_id = ?
+            ");
+            $stmtCourses->execute([$faculty_id]);
+            $coursesTaught = $stmtCourses->fetchColumn();
+
+            // Count unique failing enrollments in this faculty's sections
+            $stmtFailing = $pdo->prepare("
+                SELECT COUNT(DISTINCT g.enrollment_id) 
+                FROM `Grades` g
+                JOIN `Enrollment` e ON g.enrollment_id = e.enrollment_id
+                JOIN `Section` sec ON e.section_id = sec.section_id
+                WHERE g.status = 'Failed' AND sec.faculty_id = ?
+            ");
+            $stmtFailing->execute([$faculty_id]);
+            $failingStudents = $stmtFailing->fetchColumn();
+        }
+    } else {
+        // Global counts for Admins or non-faculty roles
+        $enrolledStudents = $pdo->query("SELECT COUNT(DISTINCT student_id) FROM `Enrollment`")->fetchColumn();
+        $coursesTaught = $pdo->query("SELECT COUNT(*) FROM `Course`")->fetchColumn();
+        $failingStudents = $pdo->query("SELECT COUNT(DISTINCT enrollment_id) FROM `Grades` WHERE status = 'Failed'")->fetchColumn();
+    }
 
 } catch (PDOException $e) {
     $display_name = 'System User';
